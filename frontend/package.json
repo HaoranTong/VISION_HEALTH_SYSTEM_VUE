@@ -1,0 +1,26 @@
+{
+  "name": "vision-health-system",
+  "version": "1.0.0",
+  "private": true,
+  "scripts": {
+    "serve": "vue-cli-service serve",
+    "build": "vue-cli-service build",
+    "lint": "vue-cli-service lint"
+  },
+  "dependencies": {
+    "vue": "^3.2.0",
+    "vue-router": "^4.0.0",
+    "axios": "^0.24.0",
+    "vuex": "^4.0.0",
+    "element-plus": "^2.2.0",
+    "chart.js": "^3.7.0",
+    "vue-chartjs": "^3.5.0"
+  },
+  "devDependencies": {
+    "@vue/cli-plugin-babel": "^5.0.0",
+    "@vue/cli-plugin-eslint": "^5.0.0",
+    "@vue/cli-service": "^5.0.0",
+    "eslint": "^8.10.0",
+    "eslint-plugin-vue": "^9.0.0"
+  }
+}
