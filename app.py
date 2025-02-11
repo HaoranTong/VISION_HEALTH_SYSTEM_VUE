@@ -21,6 +21,7 @@ r"""
 import sys
 import os
 from flask import Flask, send_from_directory, render_template
+from flask_migrate import Migrate  # 导入 Flask-Migrate
 from context_system.api.endpoints.student_api import student_api
 from context_system.api.endpoints.query_api import query_api
 from context_system.api.endpoints.import_api import import_api
@@ -31,6 +32,10 @@ from config.app.config import DevelopmentConfig  # pylint: disable=E0611
 # 初始化 Flask 应用
 app = Flask(__name__)
 app.config.from_object(DevelopmentConfig)
+
+# 初始化数据库迁移
+migrate = Migrate(app, db)  # 初始化 Migrate
+
 print("SQLALCHEMY_DATABASE_URI:", app.config.get("SQLALCHEMY_DATABASE_URI"))
 db.init_app(app)
 
@@ -70,14 +75,15 @@ def statistics_analysis():
     directory = os.path.join(app.root_path, "frontend", "web")
     return send_from_directory(directory, "statistics_analysis.html")
 
+
 @app.route("/dashboard.html")
 def dashboard():
     """
-    返回 Dashboard 页面静态文件.
-    从 frontend/web/ 目录中返回 dashboard.html 文件.
+    返回 index 页面静态文件.
+    从 frontend/web/ 目录中返回 index.html 文件.
     """
     directory = os.path.join(app.root_path, "frontend", "web")
-    return send_from_directory(directory, "dashboard.html")
+    return send_from_directory(directory, "index.html")
 
 # 主程序
 if __name__ == "__main__":

@@ -1,92 +1,280 @@
-﻿<!DOCTYPE html>
+﻿<!--
+文件名称: index.html
+完整存储路径: E:\DEV_CONTEXT\1_Projects\VISION_HEALTH_SYSTEM_VUE\frontend\web\index.html
+功能介绍:
+    这是近视预防干预系统的主页，包含左侧导航栏、右侧数据展示区、全屏按钮、用户头像、登录下拉菜单等。
+    页面布局采用左侧导航栏与右侧数据展示区的结构，顶部导航栏固定，能够满足系统数据展示与管理需求。
+使用方法:
+    将该文件放置在相应的路径中，打开浏览器访问该页面即可查看系统主页。
+-->
+
+<!DOCTYPE html>
 <html lang="zh">
 <head>
     <meta charset="UTF-8">
     <meta name="viewport" content="width=device-width, initial-scale=1.0">
     <title>近视预防干预系统</title>
     <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
     <style>
-        /* 简单的CSS样式，用于左侧导航和右侧展示区布局 */
         body {
+            margin: 0;
+            padding: 0;
             display: flex;
-            flex-direction: row;
+            height: 100vh;
         }
+
+        #toggleSidebar {
+            padding: 8px;
+            margin-right: 15px;
+        }
+
         .sidebar {
             width: 250px;
             background-color: #343a40;
             color: #fff;
             padding: 15px;
+            position: fixed;
+            height: 100%;
+            top: 0;
+            left: 0;
+            transition: width 0.3s ease;
+            overflow-y: auto;
         }
-        .main-content {
-            flex-grow: 1;
-            padding: 15px;
+
+        .sidebar.collapsed {
+            width: 60px;
         }
+
+        .sidebar.collapsed h3,
+        .sidebar.collapsed ul li span {
+            display: none;
+        }
+
+        .sidebar h3 {
+            margin-bottom: 20px;
+            font-size: 18px;
+            white-space: nowrap;
+        }
+
+        .sidebar ul {
+            padding-left: 0;
+        }
+
+        .sidebar ul li {
+            list-style: none;
+            margin-bottom: 10px;
+        }
+
+        .sidebar ul li a {
+            color: white;
+            text-decoration: none;
+            display: flex;
+            align-items: center;
+            padding: 8px;
+            border-radius: 4px;
+            transition: all 0.2s;
+        }
+
+        .sidebar ul li a:hover {
+            background-color: rgba(255,255,255,0.1);
+        }
+
+        .sidebar ul li i {
+            min-width: 24px;
+            text-align: center;
+        }
+
+        .sidebar ul li ul {
+            display: none;
+            padding-left: 20px;
+        }
+
+        .sidebar ul li.active > ul {
+            display: block;
+        }
+
         .navbar {
+            position: fixed;
+            top: 0;
+            left: 250px;
+            width: calc(100% - 250px);
             background-color: #007bff;
+            color: white;
             padding: 10px;
+            z-index: 1000;
+            transition: all 0.3s ease;
+        }
+
+        .main-content {
+            margin-left: 250px;
+            margin-top: 60px;
+            padding: 15px;
+            flex-grow: 1;
+            transition: margin-left 0.3s ease;
+        }
+
+        @media (max-width: 768px) {
+            .sidebar {
+                left: -250px;
+            }
+            .sidebar.active {
+                left: 0;
+            }
+            .navbar,
+            .main-content {
+                left: 0;
+                width: 100%;
+                margin-left: 0;
+            }
+        }
+
+        .avatar-img {
+            width: 30px;
+            height: 30px;
+            border-radius: 50%;
+            object-fit: cover;
         }
     </style>
 </head>
 <body>
 
-    <!-- 左侧导航栏 -->
-    <div class="sidebar">
-        <h3>耳穴压丸近视预防干预</h3>
-        <ul class="list-unstyled">
-            <li><a href="#">首页</a></li>
-            <li><a href="#">数据管理</a>
-                <ul>
-                    <li><a href="#">数据导入</a></li>
-                    <li><a href="#">数据修改</a></li>
-                </ul>
-            </li>
-            <li><a href="#">数据查询</a>
-                <ul>
-                    <li><a href="#">基础数据</a></li>
-                    <li><a href="#">视力数据</a></li>
-                    <li><a href="#">干预效果</a></li>
-                </ul>
-            </li>
-            <li><a href="#">统计分析</a>
-                <ul>
-                    <li><a href="#">视力分布</a></li>
-                    <li><a href="#">视力变化</a></li>
-                </ul>
-            </li>
-            <li><a href="#">系统管理</a>
-                <ul>
-                    <li><a href="#">用户管理</a></li>
-                    <li><a href="#">角色管理</a></li>
-                    <li><a href="#">菜单管理</a></li>
-                    <li><a href="#">参数管理</a></li>
-                    <li><a href="#">字典管理</a></li>
-                    <li><a href="#">通知公告</a></li>
-                    <li><a href="#">日志管理</a></li>
-                </ul>
-            </li>
-        </ul>
-    </div>
+<div class="sidebar">
+    <h3>耳穴压丸近视预防干预</h3>
+    <ul class="list-unstyled">
+        <li><a href="#"><i class="bi bi-house-door" title="首页"></i><span>首页</span></a></li>
+        <li class="menu-item">
+            <a href="javascript:void(0);" class="menu-toggle"><i class="bi bi-folder" title="数据管理"></i><span>数据管理</span></a>
+            <ul>
+                <li><a href="#"><i class="bi bi-upload" title="数据导入"></i><span>数据导入</span></a></li>
+                <li><a href="#"><i class="bi bi-pencil" title="数据修改"></i><span>数据修改</span></a></li>
+            </ul>
+        </li>
+        <li class="menu-item">
+            <a href="javascript:void(0);" class="menu-toggle"><i class="bi bi-search" title="数据查询"></i><span>数据查询</span></a>
+            <ul>
+                <li><a href="#"><i class="bi bi-table" title="基础数据"></i><span>基础数据</span></a></li>
+                <li><a href="#"><i class="bi bi-eye" title="视力数据"></i><span>视力数据</span></a></li>
+                <li><a href="#"><i class="bi bi-bar-chart" title="干预效果"></i><span>干预效果</span></a></li>
+            </ul>
+        </li>
+        <li class="menu-item">
+            <a href="javascript:void(0);" class="menu-toggle"><i class="bi bi-bar-chart-line" title="统计分析"></i><span>统计分析</span></a>
+            <ul>
+                <li><a href="#"><i class="bi bi-pie-chart" title="视力分布"></i><span>视力分布</span></a></li>
+                <li><a href="#"><i class="bi bi-arrow-up-down" title="视力变化"></i><span>视力变化</span></a></li>
+            </ul>
+        </li>
+        <li class="menu-item">
+            <a href="javascript:void(0);" class="menu-toggle"><i class="bi bi-tools" title="系统管理"></i><span>系统管理</span></a>
+            <ul>
+                <li><a href="#"><i class="bi bi-person" title="用户管理"></i><span>用户管理</span></a></li>
+                <li><a href="#"><i class="bi bi-shield-lock" title="角色管理"></i><span>角色管理</span></a></li>
+                <li><a href="#"><i class="bi bi-list" title="菜单管理"></i><span>菜单管理</span></a></li>
+                <li><a href="#"><i class="bi bi-gear" title="参数管理"></i><span>参数管理</span></a></li>
+                <li><a href="#"><i class="bi bi-database" title="字典管理"></i><span>字典管理</span></a></li>
+                <li><a href="#"><i class="bi bi-bell" title="通知公告"></i><span>通知公告</span></a></li>
+                <li><a href="#"><i class="bi bi-file-earmark" title="日志管理"></i><span>日志管理</span></a></li>
+            </ul>
+        </li>
+    </ul>
+</div>
 
-    <!-- 右侧数据展示区 -->
-    <div class="main-content">
-        <div class="navbar">
-            <button>全屏</button>
-            <div class="user-profile">
-                <img src="user-avatar.jpg" alt="用户头像"> 用户头像
-                <div class="dropdown">
-                    <a href="#">登录</a>
-                    <a href="#">个人中心</a>
-                    <a href="#">退出登录</a>
-                </div>
+<div class="main-content">
+    <nav class="navbar navbar-expand-lg">
+        <div class="container-fluid">
+            <button class="btn btn-link text-white" id="toggleSidebar">
+                <i class="bi bi-list"></i>
+            </button>
+            <div class="collapse navbar-collapse" id="navbarNav">
+                <ul class="navbar-nav ms-auto">
+                    <li class="nav-item">
+                        <button class="btn btn-outline-light" id="fullscreenBtn">
+                            <i class="bi bi-fullscreen"></i>
+                        </button>
+                    </li>
+                    <li class="nav-item dropdown">
+                        <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown">
+                            <img src="data:image/svg+xml;base64,PHN2ZyB4bWxucz0iaHR0cDovL3d3dy53My5vcmcvMjAwMC9zdmciIHdpZHRoPSIyNCIgaGVpZ2h0PSIyNCIgdmlld0JveD0iMCAwIDI0IDI0Ij48cGF0aCBkPSJNMTIgMGMtMy4wNDMgMC01LjUgMi40NTctNS41IDUuNXMxLjI1MyAzLjU3MyAyLjczOCA1LjI0M2MxLjQ4NSAxLjY3IDMuMjkzIDMuMDI3IDUuMjYyIDMuMDI3czMuNzc3LTEuMzU3IDUuMjYyLTMuMDI3YzEuNDg1LTEuNjcgMi43MzgtMi45NDMgMi43MzgtNS4yNDNzLTIuNDU3LTUuNS01LjUtNS41em0wIDE0Yy0zLjM2IDAtNiA0LjQ4Ny02IDhoMTJjMC0zLjUxMy0yLjY0LTgtNi04eiIgZmlsbD0iI2ZmZiIvPjwvc3ZnPg==" class="avatar-img" alt="用户头像">
+                        </a>
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="#"><i class="bi bi-person me-2"></i>个人中心</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#"><i class="bi bi-box-arrow-right me-2"></i>退出登录</a></li>
+                        </ul>
+                    </li>
+                </ul>
             </div>
         </div>
+    </nav>
 
-        <!-- 数据展示区 -->
-        <div class="container">
-            <h1>欢迎使用近视预防干预系统</h1>
-            <p>在此展示系统相关数据和统计分析结果。</p>
-        </div>
+    <div class="container">
+        <h1>欢迎使用近视预防干预系统</h1>
+        <p>在此展示系统相关数据和统计分析结果。</p>
     </div>
+</div>
+
+<script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
+<script>
+    document.addEventListener('DOMContentLoaded', function() {
+        // 侧边栏切换
+        const sidebarToggle = document.getElementById('toggleSidebar');
+        const sidebar = document.querySelector('.sidebar');
+        const mainContent = document.querySelector('.main-content');
+        const navbar = document.querySelector('.navbar');
+
+        if (sidebarToggle) {
+            sidebarToggle.addEventListener('click', () => {
+                sidebar.classList.toggle('collapsed');
+                const isCollapsed = sidebar.classList.contains('collapsed');
+                mainContent.style.marginLeft = isCollapsed ? '60px' : '250px';
+                navbar.style.left = isCollapsed ? '60px' : '250px';
+                navbar.style.width = isCollapsed ? 'calc(100% - 60px)' : 'calc(100% - 250px)';
+            });
+        }
+
+        // 全屏功能
+        const fullscreenBtn = document.getElementById('fullscreenBtn');
+        fullscreenBtn.addEventListener('click', toggleFullscreen);
+
+        function toggleFullscreen() {
+            if (!document.fullscreenElement) {
+                document.documentElement.requestFullscreen();
+                fullscreenBtn.innerHTML = '<i class="bi bi-fullscreen-exit"></i>';
+            } else {
+                document.exitFullscreen();
+                fullscreenBtn.innerHTML = '<i class="bi bi-fullscreen"></i>';
+            }
+        }
+
+        // 菜单切换
+        document.querySelectorAll('.menu-toggle').forEach(toggle => {
+            toggle.addEventListener('click', function() {
+                this.parentElement.classList.toggle('active');
+            });
+        });
+
+        // 移动端适配
+        function handleMobileView() {
+            if (window.innerWidth <= 768) {
+                sidebar.classList.add('collapsed');
+                mainContent.style.marginLeft = '0';
+                navbar.style.left = '0';
+                navbar.style.width = '100%';
+            }
+        }
+        window.addEventListener('resize', handleMobileView);
+        handleMobileView();
+    });
+
+    // 初始化工具提示
+    const tooltipTriggerList = document.querySelectorAll('[title]');
+    tooltipTriggerList.forEach(tooltip => {
+        new bootstrap.Tooltip(tooltip, {
+            trigger: 'hover'
+        });
+    });
+</script>
 
 </body>
 </html>
