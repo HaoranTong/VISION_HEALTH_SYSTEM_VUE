@@ -2,11 +2,11 @@
 # -*- coding: utf-8 -*-
 r"""
 文件名称: app.py
-完整存储路径: E:\DEV_CONTEXT\1_Projects\VISION_HEALTH_SYSTEM\app.py
+完整存储路径: E:\DEV_CONTEXT\1_Projects\VISION_HEALTH_SYSTEM_UVE\app.py
 功能介绍:
     初始化 Flask 应用、加载配置、初始化数据库，
     并注册所有 API 蓝图及静态页面路由。
-    支持数据录入、查询、电子表格导入、统计分析页面及 Dashboard 页面访问。
+    支持数据录入、查询、电子表格导入、统计分析页面及 ibdex.htlm 页面访问。
 使用方法:
     启动命令: python app.py
     可访问以下页面:
@@ -14,7 +14,7 @@ r"""
         /data_query.html
         /data_import.html
         /statistics_analysis.html
-        /dashboard.html
+        /index.html
 """
 
 # pylint: disable=wrong-import-position
@@ -22,11 +22,11 @@ import sys
 import os
 from flask import Flask, send_from_directory, render_template
 from flask_migrate import Migrate  # 导入 Flask-Migrate
-from context_system.api.endpoints.student_api import student_api
-from context_system.api.endpoints.query_api import query_api
-from context_system.api.endpoints.import_api import import_api
-from context_system.api.endpoints.analysis_api import analysis_api
-from context_system.infrastructure.database import db
+from backend.api.student_api import student_api  # 修改为正确路径
+from backend.api.query_api import query_api
+from backend.api.import_api import import_api  # 修改为正确路径
+from backend.api.analysis_api import analysis_api  # 修改为正确路径
+from backend.infrastructure.database import db  # 修改为正确路径
 from config.app.config import DevelopmentConfig  # pylint: disable=E0611
 
 # 初始化 Flask 应用
@@ -74,7 +74,6 @@ def statistics_analysis():
     """返回统计分析页面的静态文件"""
     directory = os.path.join(app.root_path, "frontend", "web")
     return send_from_directory(directory, "statistics_analysis.html")
-
 
 @app.route("/dashboard.html")
 def dashboard():
