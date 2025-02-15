@@ -8,15 +8,32 @@ r"""
     使用 Pandas 解析文件，对每行数据进行必填字段校验与数据转换，
     如果该行存在必填字段缺失、数据格式错误或重复记录，则将该行记录为失败，
     并在失败记录表中输出原始完整内容，对出错的字段以红字标记显示；
-    否则将全部数据（包括可选字段）导入数据库。
-    其中必填字段为：
+    否则将基本数据导入 Student 表，并将扩展字段数据（如果存在）导入 StudentExtension 表。
+    基本信息必填字段为：
       "教育ID号", "学校", "年级", "班级", "姓名", "性别", "年龄",
       "右眼-裸眼视力", "左眼-裸眼视力"
-    可选字段包括："出生日期", "身份证", "家长姓名", "家长电话",
-      "右眼-矫正视力", "左眼-矫正视力", "联系电话"
+    可选基本字段为：
+      "出生日期", "身份证", "家长姓名", "家长电话", "右眼-矫正视力", "左眼-矫正视力", "联系电话"
+    扩展字段包括：
+      "区域", "饮食偏好", "运动偏好", "健康教育", "矫正方式",
+      "右眼-角膜曲率K1", "左眼-角膜曲率K1", "右眼-角膜曲率K2", "左眼-角膜曲率K2",
+      "右眼-眼轴", "左眼-眼轴",
+      "右眼屈光-球镜", "右眼屈光-柱镜", "右眼屈光-轴位",
+      "左眼屈光-球镜", "左眼屈光-柱镜", "左眼屈光-轴位",
+      "右眼散瞳-球镜", "右眼散瞳-柱镜", "右眼散瞳-轴位",
+      "左眼散瞳-球镜", "左眼散瞳-柱镜", "左眼散瞳-轴位",
+      "右眼-前房深度", "左眼-前房深度",
+      "其他情况", "眼疲劳状况",
+      "右眼散瞳-干预-球镜", "右眼散瞳-干预-柱镜", "右眼散瞳-干预-轴位",
+      "左眼散瞳-干预-球镜", "左眼散瞳-干预-柱镜", "左眼散瞳-干预-轴位",
+      "第1次干预", "第2次干预", "第3次干预", "第4次干预", "第5次干预", "第6次干预",
+      "第7次干预", "第8次干预", "第9次干预", "第10次干预", "第11次干预", "第12次干预",
+      "第13次干预", "第14次干预", "第15次干预", "第16次干预"
+    扩展字段通过映射转换为 StudentExtension 模型的属性名，
+    对于以 "intervention" 开头的字段（干预时间记录），将其转换为 Python datetime 对象。
     学校信息：
       - 学校代码由映射字典获得，保存到 school_code 字段；
-      - 学校名称保存到 school_id 字段（即原 Excel 中“学校”的内容）。
+      - 学校名称保存到 school_id 字段（即 Excel 中“学校”的内容）。
 使用方法:
     API接口 URL: /api/students/import
     请求方法: POST
@@ -31,12 +48,12 @@ from flask import Blueprint, request, jsonify
 from werkzeug.utils import secure_filename
 from backend.models.student import Student
 from backend.infrastructure.database import db
+from backend.models.student_extension import StudentExtension  # 扩展信息表模型
 
 # 创建 Blueprint
 import_api = Blueprint("import_api", __name__)
 
 ALLOWED_EXTENSIONS = {"xlsx"}
-# 定义存储失败记录文件的目录
 FAILURE_RECORDS_DIR = os.path.join(os.getcwd(), "temp_uploads")
 if not os.path.exists(FAILURE_RECORDS_DIR):
     os.makedirs(FAILURE_RECORDS_DIR)
@@ -54,6 +71,59 @@ SCHOOL_CODE_MAP = {
     "苏宁红军小学校": "003"
 }
 
+# 定义扩展字段映射：Excel 列名 -> StudentExtension 模型属性名
+EXTENDED_FIELD_MAP = {
+    "区域": "region",
+    "饮食偏好": "diet_preference",
+    "运动偏好": "exercise_preference",
+    "健康教育": "health_education",
+    "矫正方式": "correction_method",
+    "右眼-角膜曲率K1": "right_keratometry_K1",
+    "左眼-角膜曲率K1": "left_keratometry_K1",
+    "右眼-角膜曲率K2": "right_keratometry_K2",
+    "左眼-角膜曲率K2": "left_keratometry_K2",
+    "右眼-眼轴": "right_axial_length",
+    "左眼-眼轴": "left_axial_length",
+    "右眼屈光-球镜": "right_sphere",
+    "右眼屈光-柱镜": "right_cylinder",
+    "右眼屈光-轴位": "right_axis",
+    "左眼屈光-球镜": "left_sphere",
+    "左眼屈光-柱镜": "left_cylinder",
+    "左眼屈光-轴位": "left_axis",
+    "右眼散瞳-球镜": "right_dilation_sphere",
+    "右眼散瞳-柱镜": "right_dilation_cylinder",
+    "右眼散瞳-轴位": "right_dilation_axis",
+    "左眼散瞳-球镜": "left_dilation_sphere",
+    "左眼散瞳-柱镜": "left_dilation_cylinder",
+    "左眼散瞳-轴位": "left_dilation_axis",
+    "右眼-前房深度": "right_anterior_chamber",
+    "左眼-前房深度": "left_anterior_chamber",
+    "其他情况": "other_remarks",
+    "眼疲劳状况": "eye_fatigue",
+    "右眼散瞳-干预-球镜": "right_intervention_dilation_sphere",
+    "右眼散瞳-干预-柱镜": "right_intervention_dilation_cylinder",
+    "右眼散瞳-干预-轴位": "right_intervention_dilation_axis",
+    "左眼散瞳-干预-球镜": "left_intervention_dilation_sphere",
+    "左眼散瞳-干预-柱镜": "left_intervention_dilation_cylinder",
+    "左眼散瞳-干预-轴位": "left_intervention_dilation_axis",
+    "第1次干预": "intervention1",
+    "第2次干预": "intervention2",
+    "第3次干预": "intervention3",
+    "第4次干预": "intervention4",
+    "第5次干预": "intervention5",
+    "第6次干预": "intervention6",
+    "第7次干预": "intervention7",
+    "第8次干预": "intervention8",
+    "第9次干预": "intervention9",
+    "第10次干预": "intervention10",
+    "第11次干预": "intervention11",
+    "第12次干预": "intervention12",
+    "第13次干预": "intervention13",
+    "第14次干预": "intervention14",
+    "第15次干预": "intervention15",
+    "第16次干预": "intervention16"
+}
+
 
 @import_api.route("/api/students/import", methods=["POST"])
 def import_students():
@@ -62,9 +132,8 @@ def import_students():
     接收上传的 Excel 文件，使用 Pandas 解析文件，
     对每行数据进行必填字段校验与数据转换，
     如果该行存在必填字段缺失、数据格式错误或重复记录，则将该行记录为失败；
-    否则将全部数据（包括可选字段）导入数据库。
-    导入完成后，如有失败记录，导出一个 Excel 文件，
-    并在出错的单元格以红字标记显示错误。
+    否则将基本数据导入 Student 表，并将扩展字段数据（如果存在）导入 StudentExtension 表。
+    导入完成后，如有失败记录，导出一个 Excel 文件，并在出错的单元格以红字标记显示错误。
     返回 JSON 响应，包含导入成功记录数及失败记录文件下载链接（若有）。
     """
     if "file" not in request.files:
@@ -82,7 +151,7 @@ def import_students():
     file.save(filepath)
 
     try:
-        # 指定身份证、家长电话、联系电话均作为字符串读取，避免数值转换问题
+        # 指定身份证、家长电话、联系电话为字符串类型
         df = pd.read_excel(
             filepath, dtype={"身份证": str, "家长电话": str, "联系电话": str})
 
@@ -94,13 +163,12 @@ def import_students():
                 if col != "矫正方式类型":
                     df.drop(columns=[col], inplace=True)
 
-        # 定义必填字段列表（只包含原来规定的必填项）
-        required_columns = [
+        # 定义基本必填字段列表
+        basic_required = [
             "教育ID号", "学校", "年级", "班级", "姓名", "性别", "年龄",
             "右眼-裸眼视力", "左眼-裸眼视力"
         ]
-        missing_cols = [
-            col for col in required_columns if col not in df.columns]
+        missing_cols = [col for col in basic_required if col not in df.columns]
         if missing_cols:
             failure_data = pd.DataFrame({
                 "错误": [f"缺少必填字段: {', '.join(missing_cols)}"]
@@ -116,14 +184,13 @@ def import_students():
             }), 400
 
         imported_count = 0
-        error_rows = []  # 记录失败行的信息
+        error_rows = []  # 用于记录失败行信息
 
-        # 遍历每一行数据进行校验与导入
         for idx, row in df.iterrows():
             error_fields = []  # 记录当前行出错的字段
 
-            # 检查必填字段是否存在且非空
-            for col in required_columns:
+            # 检查基本必填字段是否存在且非空
+            for col in basic_required:
                 if pd.isna(row[col]):
                     error_fields.append(col)
 
@@ -179,7 +246,7 @@ def import_students():
                 })
                 continue
 
-            # 处理可选字段
+            # 处理可选基本字段
             try:
                 if "出生日期" in df.columns and not pd.isna(row["出生日期"]):
                     if isinstance(row["出生日期"], pd.Timestamp):
@@ -191,7 +258,6 @@ def import_students():
             except Exception:
                 birthday_val = None
 
-            # 直接按字符串处理身份证、家长电话、联系电话
             id_card = row["身份证"].strip() if "身份证" in df.columns and pd.notna(
                 row["身份证"]) else None
             parent_name = row["家长姓名"].strip() if "家长姓名" in df.columns and pd.notna(
@@ -201,11 +267,11 @@ def import_students():
             phone_val = row["联系电话"].strip() if "联系电话" in df.columns and pd.notna(
                 row["联系电话"]) else None
 
-            # 创建 Student 实例，将必填和可选数据导入
+            # 创建 Student 实例（基本信息）
             student = Student(
                 full_edu_id=str(row["教育ID号"]),
                 school_code=school_code,
-                school_id=school_name,  # 将学校名称保存到 school_id 字段
+                school_id=school_name,  # 保存学校名称到 school_id 字段
                 name=str(row["姓名"]),
                 gender=str(row["性别"]) if not pd.isna(row["性别"]) else None,
                 age=int(row["年龄"]) if not pd.isna(row["年龄"]) else None,
@@ -217,7 +283,7 @@ def import_students():
                 vision_left_corrected=vision_left_corrected,
                 birthday=birthday_val,
                 id_card=id_card,
-                phone=phone_val,  # 现在将联系电话处理后导入
+                phone=phone_val,
                 parent_name=parent_name,
                 parent_phone=parent_phone,
                 myopia_level=None
@@ -225,7 +291,38 @@ def import_students():
             student.index_id = index_id
 
             db.session.add(student)
+            db.session.flush()  # 获取 student.id
             imported_count += 1
+
+            # 处理扩展字段：根据映射转换
+            extended_data = {}
+            for excel_field, model_field in EXTENDED_FIELD_MAP.items():
+                if excel_field in df.columns:
+                    value = row[excel_field]
+                    if pd.isna(value):
+                        value = None
+                    else:
+                        # 如果该字段是干预时间记录，则转换为 datetime 对象
+                        if model_field.startswith("intervention"):
+                            try:
+                                dt_value = pd.to_datetime(value)
+                                if isinstance(dt_value, pd.Timestamp):
+                                    value = dt_value.to_pydatetime()
+                                else:
+                                    value = dt_value
+                            except Exception:
+                                value = None
+                        else:
+                            value = str(value).strip()
+                    extended_data[model_field] = value
+            if extended_data:
+                extension = StudentExtension(
+                    student_id=student.id,
+                    **extended_data
+                )
+                # 使用 no_autoflush 防止自动 flush 问题
+                with db.session.no_autoflush:
+                    db.session.add(extension)
 
         db.session.commit()
         os.remove(filepath)
@@ -248,7 +345,6 @@ def import_students():
             workbook = writer.book
             red_format = workbook.add_format({'font_color': 'red'})
             worksheet = writer.sheets['Failures']
-            # 对错误行中出错的字段单元格设置红色格式
             for i, er in enumerate(error_rows):
                 for field in er["error_fields"]:
                     if field in error_df.columns:

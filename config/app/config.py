@@ -12,6 +12,7 @@
     加载配置参数。
 """
 
+
 class DevelopmentConfig:
     """
     DevelopmentConfig 类:
@@ -23,6 +24,7 @@ class DevelopmentConfig:
         SQLALCHEMY_TRACK_MODIFICATIONS (bool): 禁用对象修改追踪，默认为 False。
         SECRET_KEY (str): Flask 的密钥，用于会话加密及其他安全相关功能。
     """
+
     DEBUG = True
     TESTING = False
     SQLALCHEMY_DATABASE_URI = "sqlite:///instance/app.db"

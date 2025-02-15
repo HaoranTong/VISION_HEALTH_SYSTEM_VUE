@@ -1,0 +1,65 @@
+﻿<!-- 文件名称: topnav.html -->
+<!-- 完整存储路径: VISION_HEALTH_SYSTEM_VUE\frontend\web\topnav.html -->
+
+<!DOCTYPE html>
+<html>
+<head>
+    <meta charset="UTF-8">
+    <title>顶部导航栏</title>
+    <!-- 引入Bootstrap CSS -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <!-- 引入Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    <!-- 引入自定义CSS -->
+    <link rel="stylesheet" href="../static/css/topnav.css">
+</head>
+<body>
+    <!-- 导航栏容器 -->
+    <nav class="topnav">
+        <div class="nav-container">
+            <!-- 折叠侧边栏按钮 -->
+            <button class="nav-toggle" id="toggleSidebar">
+                <i class="bi bi-list"></i>
+            </button>
+
+            <!-- 右侧功能区域 -->
+            <div class="nav-right">
+                <!-- 全屏按钮 -->
+                <button class="nav-btn" id="fullscreenBtn">
+                    <i class="bi bi-fullscreen"></i>
+                </button>
+
+                <!-- 用户菜单 -->
+                <div class="user-menu">
+                    <div class="user-dropdown">
+                        <img src="../static/images/avatar.png" 
+                             class="user-avatar" 
+                             alt="用户头像"
+                             data-bs-toggle="dropdown">
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a class="dropdown-item" href="#">
+                                    <i class="bi bi-person"></i>
+                                    个人中心
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item" href="#">
+                                    <i class="bi bi-box-arrow-right"></i>
+                                    退出登录
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <!-- 引入Bootstrap JS -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <!-- 引入自定义JS -->
+    <script src="../static/js/topnav.js"></script>
+</body>
+</html>

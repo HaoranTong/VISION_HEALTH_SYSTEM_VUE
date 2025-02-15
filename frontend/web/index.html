@@ -1,422 +1,143 @@
-﻿<!--
-文件名称: index.html
-完整存储路径: E:\DEV_CONTEXT\1_Projects\VISION_HEALTH_SYSTEM_VUE\frontend\web\index.html
-功能介绍:
-    该页面为近视预防干预系统的主页，包含左侧导航栏、右侧数据展示区、
-    全屏按钮、用户头像、登录下拉菜单等。页面布局采用左侧导航栏与右侧数据展示区结构，
-    顶部导航栏固定，能够满足系统数据展示与管理需求。新增功能包括数据导入：
-    支持文件上传、上传结果展示、上传失败记录处理。
-使用方法:
-    将该文件放置在相应路径中，打开浏览器访问该页面即可查看系统主页。
--->
+﻿<!-- 文件名称: index.html -->
+<!-- 完整存储路径: VISION_HEALTH_SYSTEM_VUE\frontend\web\index.html -->
 
 <!DOCTYPE html>
-<html lang="zh">
+<html lang="zh-CN">
 <head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>近视预防干预系统</title>
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css">
-  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
-  <style>
-    body {
-      margin: 0;
-      padding: 0;
-      display: flex;
-      height: 100vh;
-    }
-    #toggleSidebar {
-      padding: 8px;
-      margin-right: 15px;
-    }
-    .sidebar {
-      width: 250px;
-      background-color: #343a40;
-      color: #fff;
-      padding: 15px;
-      position: fixed;
-      height: 100%;
-      top: 0;
-      left: 0;
-      transition: width 0.3s ease;
-      overflow-y: auto;
-    }
-    .sidebar.collapsed {
-      width: 60px;
-    }
-    .sidebar.collapsed h3,
-    .sidebar.collapsed ul li span {
-      display: none;
-    }
-    .sidebar h3 {
-      margin-bottom: 20px;
-      font-size: 18px;
-      white-space: nowrap;
-    }
-    .sidebar ul {
-      padding-left: 0;
-    }
-    .sidebar ul li {
-      list-style: none;
-      margin-bottom: 10px;
-    }
-    .sidebar ul li a {
-      color: white;
-      text-decoration: none;
-      display: flex;
-      align-items: center;
-      padding: 8px;
-      border-radius: 4px;
-      transition: all 0.2s;
-    }
-    .sidebar ul li a:hover {
-      background-color: rgba(255, 255, 255, 0.1);
-    }
-    .sidebar ul li i {
-      min-width: 24px;
-      text-align: center;
-    }
-    .sidebar ul li ul {
-      display: none;
-      padding-left: 20px;
-    }
-    .sidebar ul li.active > ul {
-      display: block;
-    }
-    .navbar {
-      position: fixed;
-      top: 0;
-      left: 250px;
-      width: calc(100% - 250px);
-      background-color: #007bff;
-      color: white;
-      padding: 10px;
-      z-index: 1000;
-      transition: all 0.3s ease;
-    }
-    .main-content {
-      margin-left: 250px;
-      margin-top: 60px;
-      padding: 15px;
-      flex-grow: 1;
-      transition: margin-left 0.3s ease;
-    }
-    /* 数据导入区域样式 */
-    .upload-area {
-      border: 2px dashed #007bff;
-      padding: 20px;
-      margin-top: 20px;
-      text-align: center;
-    }
-    .upload-area input[type="file"] {
-      display: none;
-    }
-    .upload-area button {
-      background-color: #007bff;
-      color: white;
-      padding: 10px 20px;
-      border: none;
-      cursor: pointer;
-    }
-    .upload-area button:hover {
-      background-color: #0056b3;
-    }
-    .status-message {
-      margin-top: 20px;
-    }
-    .upload-status ul {
-      list-style-type: none;
-      padding: 0;
-    }
-    .upload-status li {
-      margin: 5px 0;
-    }
-  </style>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>近视预防干预系统</title>
+    
+    <!-- 核心依赖 -->
+    <link href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css" rel="stylesheet">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons@1.11.3/font/bootstrap-icons.min.css">
+    
+    <!-- 自定义样式 -->
+    <link rel="stylesheet" href="/static/css/sidebar.css">
+    <link rel="stylesheet" href="/static/css/topnav.css">
+    <link rel="stylesheet" href="/static/css/main.css">
 </head>
 <body>
-  <div class="sidebar">
-    <h3>耳穴压丸近视预防干预</h3>
-    <ul class="list-unstyled">
-      <li>
-        <a href="#" title="首页">
-          <i class="bi bi-house-door"></i>
-          <span>首页</span>
-        </a>
-      </li>
-      <li class="menu-item">
-        <a href="javascript:void(0);" class="menu-toggle" title="数据管理">
-          <i class="bi bi-folder"></i>
-          <span>数据管理</span>
-        </a>
-        <ul>
-          <li>
-            <a href="#" id="dataImportBtn" title="数据导入">
-              <i class="bi bi-upload"></i>
-              <span>数据导入</span>
-            </a>
-          </li>
-          <li>
-            <a href="#" title="数据修改">
-              <i class="bi bi-pencil"></i>
-              <span>数据修改</span>
-            </a>
-          </li>
-        </ul>
-      </li>
-      <li class="menu-item">
-        <a href="javascript:void(0);" class="menu-toggle" title="数据查询">
-          <i class="bi bi-search"></i>
-          <span>数据查询</span>
-        </a>
-        <ul>
-          <li>
-            <a href="#" title="基础数据">
-              <i class="bi bi-table"></i>
-              <span>基础数据</span>
-            </a>
-          </li>
-          <li>
-            <a href="#" title="视力数据">
-              <i class="bi bi-eye"></i>
-              <span>视力数据</span>
-            </a>
-          </li>
-          <li>
-            <a href="#" title="干预效果">
-              <i class="bi bi-bar-chart"></i>
-              <span>干预效果</span>
-            </a>
-          </li>
-        </ul>
-      </li>
-      <li class="menu-item">
-        <a href="javascript:void(0);" class="menu-toggle" title="统计分析">
-          <i class="bi bi-bar-chart-line"></i>
-          <span>统计分析</span>
-        </a>
-        <ul>
-          <li>
-            <a href="#" title="视力分布">
-              <i class="bi bi-pie-chart"></i>
-              <span>视力分布</span>
-            </a>
-          </li>
-          <li>
-            <a href="#" title="视力变化">
-              <i class="bi bi-arrow-up-down"></i>
-              <span>视力变化</span>
-            </a>
-          </li>
-        </ul>
-      </li>
-      <li class="menu-item">
-        <a href="javascript:void(0);" class="menu-toggle" title="系统管理">
-          <i class="bi bi-tools"></i>
-          <span>系统管理</span>
-        </a>
-        <ul>
-          <li>
-            <a href="#" title="用户管理">
-              <i class="bi bi-person"></i>
-              <span>用户管理</span>
-            </a>
-          </li>
-          <li>
-            <a href="#" title="角色管理">
-              <i class="bi bi-shield-lock"></i>
-              <span>角色管理</span>
-            </a>
-          </li>
-          <li>
-            <a href="#" title="菜单管理">
-              <i class="bi bi-list"></i>
-              <span>菜单管理</span>
-            </a>
-          </li>
-          <li>
-            <a href="#" title="参数管理">
-              <i class="bi bi-gear"></i>
-              <span>参数管理</span>
-            </a>
-          </li>
-          <li>
-            <a href="#" title="字典管理">
-              <i class="bi bi-database"></i>
-              <span>字典管理</span>
-            </a>
-          </li>
-          <li>
-            <a href="#" title="通知公告">
-              <i class="bi bi-bell"></i>
-              <span>通知公告</span>
-            </a>
-          </li>
-          <li>
-            <a href="#" title="日志管理">
-              <i class="bi bi-file-earmark"></i>
-              <span>日志管理</span>
-            </a>
-          </li>
-        </ul>
-      </li>
-    </ul>
-  </div>
-  <div class="main-content">
-    <nav class="navbar navbar-expand-lg">
-      <div class="container-fluid">
-        <button class="btn btn-link text-white" id="toggleSidebar" title="折叠菜单">
-          <i class="bi bi-list"></i>
-        </button>
-        <div class="collapse navbar-collapse" id="navbarNav">
-          <ul class="navbar-nav ms-auto">
-            <li class="nav-item">
-              <button class="btn btn-outline-light" id="fullscreenBtn" title="全屏">
-                <i class="bi bi-fullscreen"></i>
-              </button>
-            </li>
-            <li class="nav-item dropdown">
-              <a class="nav-link dropdown-toggle d-flex align-items-center" href="#" role="button" data-bs-toggle="dropdown" title="用户设置">
-                <img src="user-avatar.jpg" alt="用户头像" class="avatar-img" title="用户头像">
-              </a>
-              <ul class="dropdown-menu dropdown-menu-end">
-                <li>
-                  <a class="dropdown-item" href="#">
-                    <i class="bi bi-person me-2"></i>个人中心
-                  </a>
-                </li>
-                <li>
-                  <hr class="dropdown-divider">
-                </li>
-                <li>
-                  <a class="dropdown-item" href="#">
-                    <i class="bi bi-box-arrow-right me-2"></i>退出登录
-                  </a>
-                </li>
-              </ul>
-            </li>
-          </ul>
+    <!-- 侧边栏 -->
+    <aside class="sidebar" id="sidebar">
+        <div class="sidebar-header">
+            <h3 class="sidebar-title">
+                <i class="bi bi-eye"></i>
+                <span class="logo-text">耳穴压丸近视预防干预</span>
+            </h3>
         </div>
-      </div>
-    </nav>
-    <!-- 数据导入页面 -->
-    <div class="container" id="dataImportPage" style="display:none;">
-      <h2>数据导入</h2>
-      <div class="upload-area" id="uploadArea">
-        <p>拖拽文件或点击按钮选择文件进行导入</p>
-        <input type="file" id="fileInput" multiple />
-        <button id="uploadBtn" title="上传文件">上传文件</button>
-      </div>
-      <div id="uploadStatus" class="status-message"></div>
-    </div>
-    <!-- 默认显示页面 -->
-    <div class="container" id="defaultPage">
-      <h1>欢迎使用近视预防干预系统</h1>
-      <p>在此展示系统相关数据和统计分析结果。</p>
-    </div>
-  </div>
-  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/js/bootstrap.bundle.min.js"></script>
-  <script>
-    document.addEventListener("DOMContentLoaded", function() {
-      // 阻止全局拖拽默认行为，避免浏览器打开文件
-      document.addEventListener("dragover", function(e) {
-        e.preventDefault();
-      });
-      document.addEventListener("drop", function(e) {
-        e.preventDefault();
-      });
-      // 侧边栏切换
-      const sidebarToggle = document.getElementById("toggleSidebar");
-      const sidebar = document.querySelector(".sidebar");
-      const mainContent = document.querySelector(".main-content");
-      const navbar = document.querySelector(".navbar");
-      sidebarToggle.addEventListener("click", () => {
-        sidebar.classList.toggle("collapsed");
-        const isCollapsed = sidebar.classList.contains("collapsed");
-        mainContent.style.marginLeft = isCollapsed ? "60px" : "250px";
-        navbar.style.left = isCollapsed ? "60px" : "250px";
-        navbar.style.width = isCollapsed ? "calc(100% - 60px)" : "calc(100% - 250px)";
-      });
-      // 全屏按钮功能
-      const fullscreenBtn = document.getElementById("fullscreenBtn");
-      fullscreenBtn.addEventListener("click", function() {
-        if (!document.fullscreenElement) {
-          document.documentElement.requestFullscreen();
-          fullscreenBtn.innerHTML = '<i class="bi bi-fullscreen-exit"></i>';
-        } else {
-          document.exitFullscreen();
-          fullscreenBtn.innerHTML = '<i class="bi bi-fullscreen"></i>';
-        }
-      });
-      // 菜单点击切换二级菜单
-      const menuToggles = document.querySelectorAll(".menu-toggle");
-      menuToggles.forEach(toggle => {
-        toggle.addEventListener("click", function() {
-          this.parentElement.classList.toggle("active");
-        });
-      });
-      // 数据导入页面切换
-      const dataImportBtn = document.getElementById("dataImportBtn");
-      const dataImportPage = document.getElementById("dataImportPage");
-      const defaultPage = document.getElementById("defaultPage");
-      dataImportBtn.addEventListener("click", function() {
-        defaultPage.style.display = "none";
-        dataImportPage.style.display = "block";
-      });
-      // 文件上传功能
-      const uploadBtn = document.getElementById("uploadBtn");
-      const fileInput = document.getElementById("fileInput");
-      const uploadStatus = document.getElementById("uploadStatus");
-      // 拖拽文件事件
-      const uploadArea = document.getElementById("uploadArea");
-      uploadArea.addEventListener("dragover", function(e) {
-        e.preventDefault();
-      });
-      uploadArea.addEventListener("drop", function(e) {
-        e.preventDefault();
-        const dtFiles = e.dataTransfer.files;
-        console.log("Dropped files:", dtFiles);
-        if (dtFiles.length > 0) {
-          uploadStatus.innerHTML = `已拖拽 ${dtFiles.length} 个文件`;
-          window.droppedFiles = dtFiles;
-        }
-      });
-      // 点击上传按钮触发文件上传
-      uploadBtn.addEventListener("click", function() {
-        let files;
-        if (window.droppedFiles && window.droppedFiles.length > 0) {
-          files = window.droppedFiles;
-        } else {
-          files = fileInput.files;
-        }
-        if (files.length === 0) {
-          uploadStatus.innerHTML = "请选择文件进行上传！";
-          return;
-        }
-        const formData = new FormData();
-        for (let i = 0; i < files.length; i++) {
-          formData.append("file", files[i]);
-        }
-        fetch("/api/students/import", {
-          method: "POST",
-          body: formData
-        })
-          .then(response => response.json())
-          .then(data => {
-            if (data.error) {
-              uploadStatus.innerHTML = `上传失败：${data.error}`;
-            } else {
-              uploadStatus.innerHTML =
-                `导入成功！${data.message}` +
-                (data.failures_file ?
-                 `；导入失败记录文件：<a href="${data.failures_file}" target="_blank">下载</a>` : "");
-            }
-          })
-          .catch(error => {
-            uploadStatus.innerHTML = `上传过程中出现错误：${error}`;
-          });
-      });
-    });
-  </script>
+        <nav class="sidebar-menu">
+            <ul>
+                <!-- 首页 -->
+                <li>
+                    <a href="index.html" class="active">
+                        <i class="bi bi-house-door"></i>
+                        <span class="menu-text">首页</span>
+                    </a>
+                </li>
+                
+                <!-- 数据管理 -->
+                <li class="menu-item">
+                    <a href="#" class="menu-toggle">
+                        <i class="bi bi-folder"></i>
+                        <span class="menu-text">数据管理</span>
+                        <i class="bi bi-chevron-down arrow"></i>
+                    </a>
+                    <ul class="submenu">
+                        <li><a href="data_import.html"><i class="bi bi-upload"></i><span>数据导入</span></a></li>
+                        <li><a href="data_edit.html"><i class="bi bi-pencil"></i><span>数据修改</span></a></li>
+                    </ul>
+                </li>
+                
+                <!-- 数据查询 -->
+                <li class="menu-item">
+                    <a href="#" class="menu-toggle">
+                        <i class="bi bi-search"></i>
+                        <span class="menu-text">数据查询</span>
+                        <i class="bi bi-chevron-down arrow"></i>
+                    </a>
+                    <ul class="submenu">
+                        <li><a href="advanced_query.html"><i class="bi bi-filter"></i><span>组合查询</span></a></li>
+                        <li><a href="student_detail.html"><i class="bi bi-person-lines-fill"></i><span>学生详情</span></a></li>
+                    </ul>
+                </li>
+                
+                <!-- 统计分析 -->
+                <li class="menu-item">
+                    <a href="#" class="menu-toggle">
+                        <i class="bi bi-bar-chart-line"></i>
+                        <span class="menu-text">统计分析</span>
+                        <i class="bi bi-chevron-down arrow"></i>
+                    </a>
+                    <ul class="submenu">
+                        <li><a href="#"><i class="bi bi-pie-chart"></i><span>视力分布</span></a></li>
+                        <li><a href="#"><i class="bi bi-arrow-up-down"></i><span>视力变化</span></a></li>
+                    </ul>
+                </li>
+                
+                <!-- 系统管理 -->
+                <li class="menu-item">
+                    <a href="#" class="menu-toggle">
+                        <i class="bi bi-tools"></i>
+                        <span class="menu-text">系统管理</span>
+                        <i class="bi bi-chevron-down arrow"></i>
+                    </a>
+                    <ul class="submenu">
+                        <li><a href="#"><i class="bi bi-person"></i><span>用户管理</span></a></li>
+                        <li><a href="#"><i class="bi bi-shield-lock"></i><span>角色管理</span></a></li>
+                        <li><a href="#"><i class="bi bi-list"></i><span>菜单管理</span></a></li>
+                        <li><a href="#"><i class="bi bi-gear"></i><span>参数管理</span></a></li>
+                        <li><a href="#"><i class="bi bi-database"></i><span>字典管理</span></a></li>
+                        <li><a href="#"><i class="bi bi-bell"></i><span>通知公告</span></a></li>
+                        <li><a href="#"><i class="bi bi-file-earmark"></i><span>日志管理</span></a></li>
+                    </ul>
+                </li>
+            </ul>
+        </nav>
+    </aside>
+
+    <!-- 顶部导航栏 -->
+    <header class="topnav">
+        <div class="nav-container">
+            <button class="nav-toggle" id="toggleSidebar" aria-label="折叠菜单">
+                <i class="bi bi-list"></i>
+            </button>
+            <div class="nav-right">
+                <button class="nav-btn" id="fullscreenBtn" aria-label="全屏">
+                    <i class="bi bi-fullscreen"></i>
+                </button>
+                <div class="user-menu">
+                    <div class="user-dropdown">
+                        <img src="../static/images/avatar.png" class="user-avatar" alt="用户头像" data-bs-toggle="dropdown">
+                        <ul class="dropdown-menu dropdown-menu-end">
+                            <li><a class="dropdown-item" href="#"><i class="bi bi-person"></i>个人中心</a></li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li><a class="dropdown-item" href="#"><i class="bi bi-box-arrow-right"></i>退出登录</a></li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </header>
+
+    <!-- 主内容区 -->
+    <main class="main-content">
+        <article class="welcome-message">
+            <h1>欢迎使用近视预防干预系统</h1>
+            <p>在此展示系统相关数据和统计分析结果。</p>
+        </article>
+    </main>
+
+    <!-- 版权页 -->
+    <footer class="footer">
+        <div class="container">
+            <p>&copy; 2023 耳穴压丸近视预防干预系统. 保留所有权利.</p>
+        </div>
+    </footer>
+
+    <!-- 脚本依赖 -->
+    <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+    <script src="../static/js/sidebar.js"></script>
+    <script src="../static/js/topnav.js"></script>
 </body>
 </html>
-<
