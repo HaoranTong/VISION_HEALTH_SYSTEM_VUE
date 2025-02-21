@@ -1,0 +1,54 @@
+﻿<!-- 文件名称：topnav.html -->
+<!-- 完整存储路径：E:\DEV_CONTEXT\1_Projects\VISION_HEALTH_SYSTEM_VUE\frontend\templates\components\topnav\topnav.html -->
+<!-- 功能说明：顶部导航栏的 HTML 结构 -->
+<!-- 使用方法：
+   - 在 HTML 文件中引入此模板，确保路径正确。
+   -> 使用相应的 ID 和类名来绑定样式和事件。 -->
+
+<!DOCTYPE html>
+<html>
+<head>
+    <title>顶部导航栏</title>
+    <!-- 引用 CSS 文件 -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='components/topnav/topnav.css') }}">
+    <!-- 引用 Bootstrap Icons -->
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.min.css">
+</head>
+<body>
+    <nav class="topnav">
+        <div class="nav-container">
+            <div class="nav-left">
+                <!-- 侧边栏折叠按钮 -->
+                <button class="sidebar-toggle" id="toggleSidebar">
+                    <i class="bi bi-list"></i> <!-- 图标类名正确 -->
+                </button>
+            </div>
+            <div class="nav-right">
+                <!-- 全屏按钮 -->
+                <button class="nav-btn" id="fullscreenBtn">
+                    <i class="bi bi-fullscreen"></i> <!-- 图标类名正确 -->
+                </button>
+                <!-- 用户头像和下拉菜单 -->
+                <div class="user-menu">
+                    <img
+                        src="{{ url_for('static', filename='images/avatar.png') }}"
+                        alt="用户头像"
+                        class="avatar-img"
+                    />
+                    <div class="dropdown-menu">
+                        <a class="dropdown-item" href="/personal-center">
+                            <i class="bi bi-person"></i> 个人中心
+                        </a>
+                        <hr class="dropdown-divider" />
+                        <a class="dropdown-item" href="/logout">
+                            <i class="bi bi-box-arrow-right"></i> 退出登录
+                        </a>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+    <!-- 引用 JavaScript 文件 -->
+    <script src="{{ url_for('static', filename='components/topnav/topnav.js') }}"></script>
+</body>
+</html>

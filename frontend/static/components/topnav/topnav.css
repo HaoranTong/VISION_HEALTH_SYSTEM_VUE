@@ -1,0 +1,118 @@
+﻿/* 文件名称：topnav.css */
+/* 完整存储路径：E:\DEV_CONTEXT\1_Projects\VISION_HEALTH_SYSTEM_VUE\frontend\static\components\topnav\topnav.css */
+/* 功能说明：顶部导航栏的样式，包括导航栏布局、按钮样式和下拉菜单样式 */
+/* 使用方法：
+   - 确保在 HTML 文件中正确引入此 CSS 文件。
+   -> 使用相应的类名来应用样式。 */
+
+:root {
+    --sidebar-width: 250px;
+}
+
+/* 顶部导航栏容器 */
+.topnav {
+    height: 40px;
+    background: #007bff;
+    position: fixed;
+    top: 0;
+    left: var(--sidebar-width);
+    right: 0;
+    z-index: 1000;
+    box-shadow: 0 2px 4px rgba(0, 0, 0, 0.1);
+    transition: left 0.3s ease;
+    display: flex;
+    align-items: center;
+    padding: 0 15px;
+    box-sizing: border-box;
+}
+
+/* 导航栏内容容器 */
+.nav-container {
+    width: 100%;
+    display: flex;
+    justify-content: space-between;
+    align-items: center;
+}
+
+/* 左侧导航项容器 */
+.nav-left {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+/* 右侧导航项容器 */
+.nav-right {
+    display: flex;
+    align-items: center;
+    gap: 15px;
+}
+
+/* 侧边栏折叠按钮 */
+.sidebar-toggle {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+/* 全屏按钮 */
+.nav-btn {
+    background: none;
+    border: none;
+    color: white;
+    font-size: 24px;
+    cursor: pointer;
+}
+
+/* 用户头像样式 */
+.avatar-img {
+    width: 25px;
+    height: 25px;
+    border-radius: 50%;
+    object-fit: cover;
+    cursor: pointer;
+    transition: transform 0.2s;
+}
+
+/* 下拉菜单样式 */
+.dropdown-menu {
+    position: absolute;
+    top: 100%;
+    right: 0;
+    width: max-content;
+    max-width: 180px;
+    box-shadow: 0 3px 6px rgba(0, 0, 0, 0.16);
+    border: 1px solid rgba(0, 0, 0, 0.1);
+    padding: 10px 0;
+    z-index: 1050;
+    background-color: white;
+    display: none;
+}
+
+/* 菜单项样式 */
+.dropdown-item {
+    padding: 8px 16px;
+    text-align: left;
+    display: block;
+    width: 100%;
+    color: #333;
+    text-decoration: none;
+}
+
+/* 分隔线样式 */
+.dropdown-divider {
+    border-top: 1px solid rgba(0, 0, 0, 0.1);
+    margin: 5px 0;
+}
+
+/* 下拉菜单悬停效果 */
+.dropdown-item:hover {
+    background-color: #f8f9fa;
+}
+
+/* 用户头像悬停效果 */
+.avatar-img:hover {
+    transform: scale(1.2);
+}

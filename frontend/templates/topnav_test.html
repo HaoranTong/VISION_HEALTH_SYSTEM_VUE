@@ -1,0 +1,43 @@
+﻿<!-- 文件名称: topnav_test.html -->
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <title>顶部导航栏组件单独测试</title>
+    <link rel="stylesheet" href="{{ url_for('static', filename='components/topnav/topnav.css') }}">
+</head>
+<body>
+    <nav class="topnav">
+        <div class="nav-container">
+            <button class="nav-toggle" id="toggleSidebar">
+                <i class="bi bi-list"></i>
+            </button>
+            <div class="nav-right">
+                <button class="nav-btn" id="fullscreenBtn">
+                    <i class="bi bi-fullscreen"></i>
+                </button>
+                <div class="user-menu">
+                    <div class="user-dropdown">
+                        <img src="{{ url_for('static', filename='images/avatar.png') }}" alt="用户头像" class="avatar-img">
+                        <ul class="dropdown-menu">
+                            <li>
+                                <a class="dropdown-item" href="#">
+                                    <i class="bi bi-person"></i> 个人中心
+                                </a>
+                            </li>
+                            <li><hr class="dropdown-divider"></li>
+                            <li>
+                                <a class="dropdown-item" href="#">
+                                    <i class="bi bi-box-arrow-right"></i> 退出登录
+                                </a>
+                            </li>
+                        </ul>
+                    </div>
+                </div>
+            </div>
+        </div>
+    </nav>
+
+    <script src="{{ url_for('static', filename='components/topnav/topnav.js') }}"></script>
+</body>
+</html>
