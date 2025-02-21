@@ -1,0 +1,71 @@
+﻿/* 文件名称：sidebar.css */
+/* 完整存储路径：E:\DEV_CONTEXT\1_Projects\VISION_HEALTH_SYSTEM_VUE\frontend\static\components\sidebar\sidebar.css */
+/* 功能说明：侧边栏组件的样式文件，控制侧边栏的布局、折叠/展开效果以及菜单样式 */
+/* 使用说明：确保在 HTML 文件中正确引入此 CSS 文件，并使用相应的类名来应用样式。 */
+
+:root {
+    --sidebar-width: 250px;
+    --sidebar-collapsed-width: 60px;
+}
+
+.sidebar {
+    position: fixed;
+    left: 0;
+    top: 0;
+    width: var(--sidebar-width);
+    height: 100vh;
+    background: #2c3e50;
+    color: #ecf0f1;
+    transition: width 0.3s ease;
+}
+
+.sidebar-header {
+    padding: 1rem;
+    display: flex;
+    align-items: center;
+}
+
+.sidebar-header i {
+    margin-right: 0.5rem;
+}
+
+.sidebar-menu {
+    list-style: none;
+    padding: 0;
+    margin: 0;
+}
+
+.sidebar-menu li {
+    list-style: none;
+}
+
+.sidebar-menu li a {
+    display: flex;
+    align-items: center;
+    padding: 0.75rem 1.5rem;
+    color: #bdc3c7;
+    text-decoration: none;
+    border-bottom: 1px solid #34495e;
+}
+
+.sidebar-menu li a i {
+    margin-right: 1.5rem;
+}
+
+.sidebar-menu li a:hover {
+    background-color: rgba(255, 255, 255, 0.1);
+}
+
+.submenu {
+    display: none;
+    padding-left: 1rem;
+}
+
+.submenu.active {
+    display: block;
+}
+
+/* 折叠菜单时只显示图标 */
+.sidebar[data-collapsed="true"] .menu-text {
+    display: none;
+}
