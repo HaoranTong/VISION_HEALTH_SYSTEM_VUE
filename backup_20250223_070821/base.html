@@ -1,0 +1,29 @@
+﻿<!--
+文件名称：base.html
+完整路径：frontend/templates/layouts/base.html
+功能说明：基础布局模板，包含全局资源加载
+-->
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <!-- 本地字体文件 -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/bootstrap-icons.css') }}">
+    <!-- 组件样式 -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='components/sidebar/sidebar.css') }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='components/topnav/topnav.css') }}">
+</head>
+<body>
+    {% include 'components/topnav/topnav.html' %}
+    {% include 'components/sidebar/sidebar.html' %}
+    
+    <main class="main-content-container">
+        {% block content %}{% endblock %}
+    </main>
+
+    <!-- 组件脚本 -->
+    <script src="{{ url_for('static', filename='components/sidebar/sidebar.js') }}"></script>
+    <script src="{{ url_for('static', filename='components/topnav/topnav.js') }}"></script>
+</body>
+</html>

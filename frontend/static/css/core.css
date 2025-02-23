@@ -1,0 +1,35 @@
+﻿/* 文件路径：frontend/static/css/core.css */
+:root {
+  --topnav-height: 40px;
+  --sidebar-width: 250px;
+  --sidebar-collapsed-width: 60px;
+}
+
+.main-content-container {
+    margin-top: 40px;  /* 顶部导航栏高度 */
+    margin-left: 250px;  /* 侧边栏展开宽度 */
+    padding: 20px;
+    min-height: calc(100vh - 40px);
+    transition: margin-left 0.3s;
+    background: none !important;
+    display: flex;            /* 新增flex布局 */
+    flex-direction: column;
+    align-items: center;      /* 水平居中 */
+    justify-content: center;  /* 垂直居中 */
+    min-height: calc(100vh - 40px); /* 确保容器高度撑满 */
+}
+
+/* 欢迎词容器样式 */
+.welcome-section {
+    max-width: 800px;
+    margin: 0 auto;        /* 移除上下margin */
+    padding: 20px;
+    border-radius: 10px;
+    background: #f8f9fa;      /* 浅灰色背景 */
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* 侧边栏折叠状态适配 */
+body.sidebar-collapsed .main-content-container {
+  margin-left: 60px;
+}

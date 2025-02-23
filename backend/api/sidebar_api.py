@@ -1,11 +1,19 @@
-﻿# 文件名称: sidebar_api.py
-# 完整路径: backend/api/sidebar_api.py
+﻿#!/usr/bin/env python
+# -*- coding: utf-8 -*-
+r"""
+文件名称: sidebar_api.py
+完整存储路径: backend/api/sidebar_api.py
+功能说明:
+    提供侧边栏菜单数据 API 接口，返回 JSON 格式的菜单数据。
+    修改后 "数据查询" 菜单增加二级子菜单，确保点击时展示子菜单而非直接跳转。
+使用说明:
+    通过 GET 请求访问 /api/menu 获取菜单数据。
+"""
 
 from flask import Blueprint, jsonify
 
 sidebar_api = Blueprint('sidebar_api', __name__)
 
-# 假设菜单数据存储在配置中或数据库中
 menu_data = [
     {
         "title": "首页",
@@ -26,7 +34,10 @@ menu_data = [
         "title": "数据查询",
         "link": "#",
         "icon": "bi-search",
-        "sub_menu": []
+        "sub_menu": [
+            {"title": "基础数据", "link": "/query/basic", "icon": "bi-table"},
+            {"title": "视力数据", "link": "/query/vision", "icon": "bi-eye"}
+        ]
     },
     {
         "title": "统计分析",
@@ -34,7 +45,7 @@ menu_data = [
         "icon": "bi-bar-chart-line",
         "sub_menu": [
             {"title": "视力分布", "link": "#vision-distribution", "icon": "bi-pie-chart"},
-            {"title": "视力变化", "link": "#vision-change", "icon": "bi-arrow-up-down"}
+            {"title": "趋势分析", "link": "#vision-change", "icon": "bi-graph-up"}
         ]
     },
     {
@@ -44,3 +55,13 @@ menu_data = [
         "sub_menu": []
     }
 ]
+
+
+@sidebar_api.route('/api/menu')
+def get_menu():
+    """
+    返回侧边栏菜单 JSON 数据.
+    Returns:
+        JSON: 菜单数据列表.
+    """
+    return jsonify(menu_data)

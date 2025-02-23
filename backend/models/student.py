@@ -13,11 +13,10 @@ r"""
     通过 SQLAlchemy ORM 创建、查询学生数据，
     调用 to_dict() 方法获取字典数据。
 """
+from datetime import date
+from backend.infrastructure.database import db
 
 # pylint: disable=no-member
-
-from backend.infrastructure.database import db
-from datetime import date
 
 
 class Student(db.Model):

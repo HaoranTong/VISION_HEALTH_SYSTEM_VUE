@@ -1,0 +1,21 @@
+﻿<!-- 
+文件名称：sidebar.html
+完整路径：frontend/templates/components/sidebar/sidebar.html
+功能说明：系统侧边导航栏组件，包含动态加载的菜单系统
+使用说明：需配合sidebar.css和sidebar.js使用，通过模板继承机制嵌入基础模板
+-->
+<div class="sidebar-component" data-collapsed="false">
+    <!-- 头部区域 -->
+    <div class="sidebar-header">
+        <i class="bi bi-clipboard-pulse sidebar-header-icon"></i>
+        <h3 class="sidebar-title">耳穴压丸近视预防干预</h3>
+    </div>
+    
+    <!-- 菜单容器 -->
+    <ul class="sidebar-menu">
+        <!-- 动态菜单加载区域 -->
+    </ul>
+</div>
+
+<!-- 组件脚本 -->
+<script src="{{ url_for('static', filename='components/sidebar/sidebar.js') }}"></script>

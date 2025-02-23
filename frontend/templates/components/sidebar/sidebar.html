@@ -1,29 +1,18 @@
-﻿<!-- 文件名称：sidebar.html -->
-<!-- 完整存储路径：E:\DEV_CONTEXT\1_Projects\VISION_HEALTH_SYSTEM_VUE\frontend\templates\components\sidebar\sidebar.html -->
-<!-- 功能说明：侧边栏组件的 HTML 文件，定义了侧边栏的基本结构，包括头部和菜单区域。菜单内容通过 JavaScript 动态生成。 -->
-<!-- 使用说明：确保在项目中正确引入 sidebar.css 和 sidebar.js 文件。将此文件放置在项目的 HTML 文件夹中，并通过浏览器打开以测试功能。 -->
-
-<!DOCTYPE html>
-<html lang="en">
-<head>
-    <meta charset="UTF-8">
-    <meta name="viewport" content="width=device-width, initial-scale=1.0">
-    <title>SideBar Component</title>
-    <link rel="stylesheet" href="{{ url_for('static', filename='components/sidebar/sidebar.css') }}">
-    <script src="{{ url_for('static', filename='components/sidebar/sidebar.js') }}"></script>
-   <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
-</head>
-<body>
-    <div class="sidebar" data-collapsed="false">
-        <div class="sidebar-header">
-            <i class="fa fa-home"></i>
-            <h3>耳穴压丸近视预防干预</h3>
-        </div>
-        <ul class="sidebar-menu">
-            <!-- 菜单内容将通过 JavaScript 动态生成 -->
-        </ul>
-    </div>
-
-    <script src="{{ url_for('static', filename='components/sidebar/sidebar.js') }}"></script>
-</body>
-</html>
+﻿<!--
+文件名称: sidebar.html
+完整存储路径: frontend/templates/components/sidebar/sidebar.html
+功能说明:
+    封装侧边栏组件，采用独立命名空间 "visionhealth-sidebar"。
+    组件内部状态和交互逻辑完全封装，不对外暴露。
+使用说明:
+    通过模板继承或包含方式嵌入到页面中。
+-->
+<div class="visionhealth-sidebar" data-collapsed="false">
+  <div class="visionhealth-sidebar__header">
+    <i class="bi bi-clipboard-pulse visionhealth-sidebar__icon"></i>
+    <h3 class="visionhealth-sidebar__title">耳穴压丸近视预防干预</h3>
+  </div>
+  <ul class="visionhealth-sidebar__menu">
+    <!-- 菜单由组件内部 JavaScript 动态加载 -->
+  </ul>
+</div>
