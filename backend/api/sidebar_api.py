@@ -26,7 +26,7 @@ menu_data = [
         "link": "#",
         "icon": "bi-folder",
         "sub_menu": [
-            {"title": "数据导入", "link": "#import", "icon": "bi-upload"},
+            {"title": "数据导入", "link": "/import", "icon": "bi-upload"},
             {"title": "数据修改", "link": "#modify", "icon": "bi-pencil"}
         ]
     },

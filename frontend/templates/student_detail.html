@@ -1,0 +1,131 @@
+﻿<!--
+文件名称: student_detail.html
+完整存储路径: frontend/templates/student_detail.html
+功能说明:
+    该页面展示学生的基本信息和扩展信息，包含以下部分：
+    1. 学生基本信息（姓名、年龄、学校等）
+    2. 学生扩展信息（视力数据、干预记录等）
+    3. 编辑功能（编辑、保存、取消）
+    4. 重新计算按钮
+
+使用说明：
+    1. 页面通过 API 获取学生详情数据，填充至页面。
+    2. 提供编辑功能并可以更新数据。
+-->
+
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>学生详情</title>
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0-alpha1/dist/css/bootstrap.min.css">
+    <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css"> <!-- 引入 Bootstrap Icons -->
+    <link rel="stylesheet" href="{{ url_for('static', filename='components/sidebar/sidebar.css', _external=True) }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='components/topnav/topnav.css', _external=True) }}">
+    <link rel="stylesheet" href="{{ url_for('static', filename='css/student_detail.css', _external=True) }}">
+</head>
+
+<body>
+    {% include 'components/sidebar/sidebar.html' %}
+    {% include 'components/topnav/topnav.html' %}
+
+    <div class="main-content">
+        <div class="container py-4">
+            <h1 class="mb-4">学生详情 - {{ student.name | default('未知') }}</h1>
+            <section class="card mb-4">
+                <div class="card-header bg-primary text-white">
+                    <h2 class="h5 mb-0">基本信息</h2>
+                </div>
+                <div class="card-body">
+                    <!-- 基本信息内容 -->
+                    <table class="table">
+                        <tr><th>姓名</th><td>{{ student.name }}</td></tr>
+                        <tr><th>年龄</th><td>{{ student.age }}</td></tr>
+                        <tr><th>学校</th><td>{{ student.school_id }}</td></tr>
+                    </table>
+                </div>
+            </section>
+
+            <section class="card mb-4">
+                <div class="card-header bg-info text-white">
+                    <h2 class="h5 mb-0">扩展信息</h2>
+                </div>
+                <div class="card-body">
+                    <!-- 扩展信息内容 -->
+                    <table class="table">
+                        <tr><th>区域</th><td>{{ extension.region }}</td></tr>
+                        <tr><th>饮食偏好</th><td>{{ extension.diet_preference }}</td></tr>
+                    </table>
+                </div>
+            </section>
+
+            <!-- 操作按钮 -->
+            <div>
+                <button class="btn btn-primary" id="editBtn">编辑</button>
+                <button class="btn btn-success" id="saveBtn" style="display:none;">保存</button>
+                <button class="btn btn-secondary" id="cancelBtn" style="display:none;">取消</button>
+                <button class="btn btn-warning" id="recalcBtn">重新计算</button>
+            </div>
+
+            <!-- 图表展示区域 -->
+            <div class="my-4">
+                <h2 class="h5">干预效果</h2>
+                <canvas id="effectChart"></canvas>
+            </div>
+        </div>
+    </div>
+
+    <script src="https://cdn.jsdelivr.net/npm/chart.js"></script>
+    <script>
+        const studentId = {{ student.id }};
+        
+        function loadStudentDetail() {
+            fetch(`/api/students/detail/${studentId}`)
+                .then(response => response.json())
+                .then(data => {
+                    document.querySelector('table').innerHTML = generateBasicInfoHTML(data.student);
+                    updateChart(data.extension);
+                });
+        }
+
+        function generateBasicInfoHTML(student) {
+            return `
+                <tr><th>姓名</th><td>${student.name}</td></tr>
+                <tr><th>年龄</th><td>${student.age}</td></tr>
+                <tr><th>学校</th><td>${student.school_id}</td></tr>
+            `;
+        }
+
+        function updateChart(extension) {
+            const ctx = document.getElementById('effectChart').getContext('2d');
+            new Chart(ctx, {
+                type: 'bar',
+                data: {
+                    labels: ['左眼变化', '右眼变化'],
+                    datasets: [{
+                        label: '裸眼视力变化',
+                        data: [extension.left_naked_vision_change, extension.right_naked_vision_change],
+                        backgroundColor: ['rgba(75, 192, 192, 0.5)', 'rgba(153, 102, 255, 0.5)']
+                    }]
+                }
+            });
+        }
+
+        document.getElementById('editBtn').addEventListener('click', () => {
+            // 切换为编辑模式
+        });
+
+        document.getElementById('recalcBtn').addEventListener('click', () => {
+            fetch(`/api/students/calculate/${studentId}`, { method: 'POST' })
+                .then(response => response.json())
+                .then(data => {
+                    alert(data.message);
+                    loadStudentDetail();
+                });
+        });
+
+        loadStudentDetail();
+    </script>
+</body>
+</html>
