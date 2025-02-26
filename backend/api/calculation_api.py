@@ -27,7 +27,7 @@ warnings.filterwarnings("ignore")
 calculation_api = Blueprint("calculation_api", __name__)
 
 
-def calculate_intervention_effects(student_id):
+def calculate_interv_effects(student_id):
     """
     根据指定学生的现有数据计算干预相关的扩展字段，并更新 StudentExtension 记录。
 
@@ -68,10 +68,10 @@ def calculate_intervention_effects(student_id):
             else:
                 return "维持"
 
-        extension.left_intervention_effect = determine_effect(
+        extension.left_interv_effect = determine_effect(
             extension.left_naked_vision_change
         )
-        extension.right_intervention_effect = determine_effect(
+        extension.right_interv_effect = determine_effect(
             extension.right_naked_vision_change
         )
 
@@ -97,7 +97,7 @@ def calculate_for_student(student_id):
     返回:
       JSON 格式结果，包含成功或错误消息。
     """
-    success, msg = calculate_intervention_effects(student_id)
+    success, msg = calculate_interv_effects(student_id)
     if success:
         return jsonify({"message": msg}), 200
     else:

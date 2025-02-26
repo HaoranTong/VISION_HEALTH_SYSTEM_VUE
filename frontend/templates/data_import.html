@@ -1,16 +1,13 @@
-﻿{#
+﻿<!--
 文件名称: data_import.html
-完整存储路径: frontend/templates/data_import.html
+完整存储路径: E:\DEV_CONTEXT\1_Projects\VISION_HEALTH_SYSTEM_VUE\frontend\templates\data_import.html
 功能说明:
-    数据导入测试页面，专用于文件上传、数据校验和导入状态反馈。
-    支持 Excel (.xlsx) 和 CSV (.csv) 文件的上传，支持拖拽和文件选择，
-    显示选中文件列表，并提供“选择文件”、“上传文件”和“取消上传”按钮。
-    页面布局和样式经过小幅优化，使上传区域更美观、易用。
-使用说明:
-    用户通过此页面选择或拖拽文件，点击上传按钮完成数据导入，
-    点击取消按钮可清空所有已选文件。上传成功后显示成功记录条数，
-    上传失败记录生成错误报告，并显示失败记录文件下载链接。
-#}
+    数据导入测试页面，支持上传 Excel (.xlsx) 和 CSV (.csv) 文件，提供拖拽与文件选择功能，
+    并增加数据年份选择下拉框（从 2023 至未来年份供选择）。上传后显示成功与失败记录，
+    失败记录可下载查看错误详情。
+使用方法:
+    打开页面后，通过下拉框选择数据年份，然后选择或拖拽文件上传。
+-->
 {% extends "layouts/base.html" %}
 
 {% block title %}数据导入 - 近视预防干预系统{% endblock %}
@@ -25,12 +22,20 @@
         </div>
         <div class="card-body">
           <p class="text-muted">
-            请选择或拖拽要导入的 Excel (.xlsx) 或 CSV (.csv) 文件。上传后将自动校验数据并保存合格记录，
-            不合格记录会生成“上传失败记录表”供您下载查看。若部分行校验失败，会显示失败行数及下载链接。
+            请选择或拖拽要导入的 Excel (.xlsx) 或 CSV (.csv) 文件。上传后将自动校验数据，
+            合格记录保存到数据库，失败记录生成“上传失败记录表”供下载查看。
           </p>
+          <!-- 数据年份选择下拉框 -->
+          <div class="mb-3">
+            <label for="dataYearSelect" class="form-label">选择数据年份</label>
+            <select id="dataYearSelect" class="form-select">
+              {% for year in range(2023, 2031) %}
+              <option value="{{ year }}">{{ year }}</option>
+              {% endfor %}
+            </select>
+          </div>
           <!-- 上传区域 -->
-          <div id="uploadArea" class="border rounded p-4 mb-4"
-               style="min-height:150px; text-align: center; transition: background 0.3s;">
+          <div id="uploadArea" class="border rounded p-4 mb-4" style="min-height:150px; text-align: center; transition: background 0.3s;">
             <p class="text-muted">拖拽文件到此区域，或点击“选择文件”按钮</p>
             <div id="fileList" class="text-start"></div>
           </div>
@@ -65,6 +70,7 @@ document.addEventListener('DOMContentLoaded', () => {
   const fileList = document.getElementById('fileList');
   const uploadArea = document.getElementById('uploadArea');
   const uploadStatus = document.getElementById('uploadStatus');
+  const dataYearSelect = document.getElementById('dataYearSelect');
 
   // 存储选择的文件（数组）
   let selectedFiles = [];
@@ -149,74 +155,30 @@ document.addEventListener('DOMContentLoaded', () => {
       uploadStatus.innerHTML = '<div class="alert alert-warning mt-2">请选择要上传的文件。</div>';
       return;
     }
-    uploadStatus.innerHTML = '<div class="alert alert-info mt-2">正在上传，请稍候……</div>';
-    // 对每个文件进行上传，这里采用并行上传
-    const promises = selectedFiles.map(file => {
-      const formData = new FormData();
+    // 获取用户选择的数据年份
+    const dataYear = dataYearSelect.value;
+    const formData = new FormData();
+    // 为保证批量上传时统一使用同一 data_year，先取第一个文件上传
+    // 如有需要，可修改为批量上传，每个文件单独处理 data_year
+    formData.append('data_year', dataYear);
+    selectedFiles.forEach(file => {
       formData.append('file', file);
-      return fetch("{{ url_for('import_api.import_students') }}", {
-        method: 'POST',
-        body: formData
-      }).then(response => response.json());
     });
-
-    Promise.all(promises)
-      .then(results => {
-        // 累加后端返回的导入与失败信息
-        let totalImported = 0;
-        let totalFailed = 0;
-        let errorMessages = [];
-        let failureLinks = [];
-
-        results.forEach(result => {
-          // 如果后端顶层有 error，则说明发生了严重错误
-          if (result.error) {
-            errorMessages.push(result.error);
-          } else {
-            // 累加导入成功和失败数量
-            totalImported += (result.imported_count || 0);
-            totalFailed += (result.failures_count || 0);
-            if (result.failures_file) {
-              failureLinks.push(result.failures_file);
-            }
-          }
-        });
-
-        // 根据累计结果判断显示
-        if (totalFailed > 0) {
-          // 部分或全部失败
-          let failLinksHtml = "";
-          if (failureLinks.length > 0) {
-            // 可能一次上传多个文件，每个文件都可能生成一个失败记录表
-            failLinksHtml = failureLinks.map(link => {
-              return `<div><a href="${link}" target="_blank" class="text-danger">下载失败记录</a></div>`;
-            }).join("");
-          }
-          uploadStatus.innerHTML = `
-            <div class="alert alert-danger mt-2">
-              上传完成：成功导入 ${totalImported} 条记录，失败 ${totalFailed} 条记录。<br>
-              ${failLinksHtml ? `失败记录表：<br>${failLinksHtml}` : ""}
-              ${errorMessages.length > 0 ? `<br>其他错误：<br>${errorMessages.join("<br>")}` : ""}
-            </div>`;
-        } else if (errorMessages.length > 0) {
-          // 如果 purely 只有 result.error
-          uploadStatus.innerHTML = `
-            <div class="alert alert-danger mt-2">
-              上传出现错误：<br>${errorMessages.join("<br>")}
-            </div>`;
+    uploadStatus.innerHTML = '<div class="alert alert-info mt-2">正在上传，请稍候……</div>';
+    fetch("{{ url_for('import_api.import_students') }}", {
+      method: 'POST',
+      body: formData
+    })
+      .then(response => response.json())
+      .then(result => {
+        if (result.error) {
+          uploadStatus.innerHTML = `<div class="alert alert-danger mt-2">${result.error}</div>`;
         } else {
-          // 全部成功
-          uploadStatus.innerHTML = `
-            <div class="alert alert-success mt-2">
-              所有文件均成功上传，共导入 ${totalImported} 条记录。
-            </div>`;
+          uploadStatus.innerHTML = `<div class="alert alert-success mt-2">${result.message}</div>`;
         }
       })
       .catch(err => {
-        uploadStatus.innerHTML = `
-          <div class="alert alert-danger mt-2">
-            上传过程中出现错误：${err}
-          </div>`;
+        uploadStatus.innerHTML = `<div class="alert alert-danger mt-2">上传过程中出现错误：${err}</div>`;
         console.error('上传错误:', err);
       });
   });

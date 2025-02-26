@@ -74,27 +74,27 @@
 | '左眼-前房深度'                            | left_anterior_chamber                | 左眼前房深度                                                 |
 | '其他情况'                                 | other_remarks                        | 其他备注信息                                                 |
 | '眼疲劳状况'                               | eye_fatigue                          | 眼疲劳状况                                                   |
-| '右眼散瞳-干预-球镜'                       | right_intervention_dilation_sphere   | 右眼散瞳干预-球镜                                            |
-| '右眼散瞳-干预-柱镜'                       | right_intervention_dilation_cylinder | 右眼散瞳干预-柱镜                                            |
-| '右眼散瞳-干预-轴位'                       | right_intervention_dilation_axis     | 右眼散瞳干预-轴位                                            |
-| '左眼散瞳-干预-球镜'                       | left_intervention_dilation_sphere    | 左眼散瞳干预-球镜                                            |
-| '左眼散瞳-干预-柱镜'                       | left_intervention_dilation_cylinder  | 左眼散瞳干预-柱镜                                            |
-| '左眼散瞳-干预-轴位'                       | left_intervention_dilation_axis      | 左眼散瞳干预-轴位                                            |
-| '第1次干预' 至 '第16次干预'                | intervention1 至 intervention16      | 每次干预记录的日期时间（存为 DateTime 类型）                 |
+| '右眼散瞳-干预-球镜'                       | right_interv_dilation_sphere   | 右眼散瞳干预-球镜                                            |
+| '右眼散瞳-干预-柱镜'                       | right_interv_dilation_cylinder | 右眼散瞳干预-柱镜                                            |
+| '右眼散瞳-干预-轴位'                       | right_interv_dilation_axis     | 右眼散瞳干预-轴位                                            |
+| '左眼散瞳-干预-球镜'                       | left_interv_dilation_sphere    | 左眼散瞳干预-球镜                                            |
+| '左眼散瞳-干预-柱镜'                       | left_interv_dilation_cylinder  | 左眼散瞳干预-柱镜                                            |
+| '左眼散瞳-干预-轴位'                       | left_interv_dilation_axis      | 左眼散瞳干预-轴位                                            |
+| '第1次干预' 至 '第16次干预'                | interv1 至 interv16      | 每次干预记录的日期时间（存为 DateTime 类型）                 |
 | 其他由系统计算得到的新增字段（初始为空）： |                                      |                                                              |
-| **post_intervention_vision_level**         | ——                                   | 干预后视力等级                                               |
+| **post_interv_vision_level**         | ——                                   | 干预后视力等级                                               |
 | **left_naked_vision_change**               | ——                                   | 左眼裸眼视力变化                                             |
 | **right_naked_vision_change**              | ——                                   | 右眼裸眼视力变化                                             |
 | **left_sphere_change**                     | ——                                   | 左眼屈光-球镜变化                                            |
 | **right_sphere_change**                    | ——                                   | 右眼屈光-球镜变化                                            |
 | **left_cylinder_change**                   | ——                                   | 左眼屈光-柱镜变化                                            |
 | **right_cylinder_change**                  | ——                                   | 右眼屈光-柱镜变化                                            |
-| **left_intervention_effect**               | ——                                   | 左眼干预效果                                                 |
-| **right_intervention_effect**              | ——                                   | 右眼干预效果                                                 |
-| **left_sphere_intervention_effect**        | ——                                   | 左眼球镜干预效果                                             |
-| **right_sphere_intervention_effect**       | ——                                   | 右眼球镜干预效果                                             |
-| **left_cylinder_intervention_effect**      | ——                                   | 左眼柱镜干预效果                                             |
-| **right_cylinder_intervention_effect**     | ——                                   | 右眼柱镜干预效果                                             |
+| **left_interv_effect**               | ——                                   | 左眼干预效果                                                 |
+| **right_interv_effect**              | ——                                   | 右眼干预效果                                                 |
+| **left_sphere_interv_effect**        | ——                                   | 左眼球镜干预效果                                             |
+| **right_sphere_interv_effect**       | ——                                   | 右眼球镜干预效果                                             |
+| **left_cylinder_interv_effect**      | ——                                   | 左眼柱镜干预效果                                             |
+| **right_cylinder_interv_effect**     | ——                                   | 右眼柱镜干预效果                                             |
 
 > **备注：**
 >

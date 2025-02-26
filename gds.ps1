@@ -13,12 +13,16 @@ $excludePatterns = @(
     ".*\.tmp$",
     "test_data"
     "document-1"
-    "docs"
-    "failures"    
-    ".env"
-    ".chat"
-    ".pytest_cache"
-    "temp*"
+    "docs",
+    "failures",  
+    ".env",
+    ".chat",
+    ".pytest_cache",
+    "temp_uploads",
+    "backup"
+
+
+    
     
 )
 
