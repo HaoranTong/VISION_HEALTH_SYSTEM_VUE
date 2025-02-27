@@ -33,6 +33,7 @@ from sqlalchemy.exc import SQLAlchemyError
 from backend.infrastructure.database import db
 from backend.models.student import Student
 
+
 ALLOWED_EXTENSIONS = {"xlsx", "csv"}
 
 # 临时上传文件保存目录（用于保存上传过程中产生的临时文件）

@@ -1,6 +1,6 @@
-#!/usr/bin/env python
+﻿#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-r"""
+"""
 文件名称: app.py
 完整存储路径: E:\DEV_CONTEXT\1_Projects\VISION_HEALTH_SYSTEM_VUE\app.py
 功能说明:
@@ -38,10 +38,11 @@ def create_app():
 
     try:
         from backend.api.import_api import import_api
-        from backend.api.sidebar_api import sidebar_api  # 新增注册侧边栏蓝图
-        # 注册蓝图
+        from backend.api.sidebar_api import sidebar_api
+        from backend.api.query_api import query_api  # 新增：引入数据查询蓝图
         app.register_blueprint(import_api)
         app.register_blueprint(sidebar_api)
+        app.register_blueprint(query_api)  # 新增：注册查询蓝图
     except Exception as e:
         app.logger.error(f"蓝图注册错误: {str(e)}")
 
@@ -58,10 +59,15 @@ def create_app():
     def index():
         return render_template('index.html')
 
+    @app.route('/query')
+    def query_page():
+        return render_template('query.html')
+
     return app
 
 
+application = create_app()
+
 if __name__ == '__main__':
     logging.basicConfig(level=logging.INFO)
-    application = create_app()
     application.run(host='0.0.0.0', port=5000, debug=False)

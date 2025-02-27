@@ -34,10 +34,7 @@ menu_data = [
         "title": "数据查询",
         "link": "#",
         "icon": "bi-search",
-        "sub_menu": [
-            {"title": "学生详情", "link": "/query/basic", "icon": "bi-table"},
-            {"title": "视力数据", "link": "/query/vision", "icon": "bi-eye"}
-        ]
+        "sub_menu": []
     },
     {
         "title": "统计分析",
