@@ -141,6 +141,7 @@ def export_students():
     """
     学生数据导出接口
     根据查询条件生成 Excel 文件，并通过 HTTP 返回供下载。
+    如果传入参数 columns，则只导出该列配置选中的字段。
     """
     try:
         query = build_query()
@@ -156,6 +157,7 @@ def export_students():
             "class_name": "班级",
             "name": "姓名",
             "gender": "性别",
+            "age": "年龄",
             "id_card": "身份证号码",
             "birthday": "出生日期",
             "phone": "联系电话",
@@ -261,6 +263,12 @@ def export_students():
         }
 
         df = pd.DataFrame(data)
+        # 如果传入了 columns 参数，则只保留该部分列
+        selected_columns = request.args.get("columns", None)
+        if selected_columns:
+            selected_columns = selected_columns.split(",")
+            df = df[selected_columns]
+        # 重命名列为中文
         df.rename(columns=COLUMN_NAME_MAPPING, inplace=True)
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="xlsxwriter") as writer:

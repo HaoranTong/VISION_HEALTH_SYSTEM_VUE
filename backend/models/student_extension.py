@@ -8,7 +8,7 @@
     健康信息、视力数据、干预数据及计算字段。该模型支持同一学生在不同数据年份下拥有多条记录，
     但通过复合唯一约束，确保每个 student_id 与 data_year 的组合在数据库中只存在一条记录。
     新增字段包括【新增】视力等级、【新增】左眼/右眼屈光-轴位变化，以及【新增】左眼/右眼轴位干预效果，
-    其他字段均严格按照数据字段映射表定义。
+    以及新增加的“年龄”字段，用于存储学生在导入数据中的年龄信息。
 使用说明:
     通过 SQLAlchemy ORM 对学生扩展数据进行 CRUD 操作，各字段命名、数据类型和长度依据项目需求设计，
     并与数据导入、查询等模块保持一致。请在重建数据库时确保旧数据已清除，以便新结构正常生成。
@@ -30,6 +30,7 @@ class StudentExtension(db.Model):
         "students.id"), nullable=False, comment="关联的学生ID")
     data_year = db.Column(db.String(4), nullable=False, comment="数据年份")
     grade = db.Column(db.String(10), nullable=True, comment="学生年级（随数据年份变化）")
+    age = db.Column(db.Integer, nullable=True, comment="年龄")  # 新增年龄字段
     height = db.Column(db.Float, nullable=True, comment="身高（单位：厘米）")
     weight = db.Column(db.Float, nullable=True, comment="体重（单位：公斤）")
     diet_preference = db.Column(db.String(50), nullable=True, comment="饮食偏好")
@@ -189,6 +190,7 @@ class StudentExtension(db.Model):
             "student_id": self.student_id,
             "data_year": self.data_year,
             "grade": self.grade,
+            "age": self.age,
             "height": self.height,
             "weight": self.weight,
             "diet_preference": self.diet_preference,

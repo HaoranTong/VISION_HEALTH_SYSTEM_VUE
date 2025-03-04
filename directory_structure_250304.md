@@ -83,6 +83,7 @@ E:\DEV_CONTEXT\1_Projects\VISION_HEALTH_SYSTEM_VUE
 │   └── 📄 vite.config.js
 ├── 📁 instance/
 │   ├── 📄 __init__.py
+│   ├── 📄 app.db
 │   └── 📄 test.db
 ├── 📁 migrations/
 │   ├── 📁 versions/
@@ -124,6 +125,7 @@ E:\DEV_CONTEXT\1_Projects\VISION_HEALTH_SYSTEM_VUE
 │   └── 📄 project.private.config.json
 ├── 📁 scripts/
 │   ├── 📄 __init__.py
+│   ├── 📄 export_mapping_table.py
 │   └── 📄 README.md
 ├── 📁 tests/
 │   ├── 📁 e2e/
@@ -149,6 +151,7 @@ E:\DEV_CONTEXT\1_Projects\VISION_HEALTH_SYSTEM_VUE
 ├── 📄 导航栏组件设计方案.md
 ├── 📄 开发过程记录.md
 ├── 📄 开发技术环境说明.md
+├── 📄 列配置明细及顺序对照表.md
 ├── 📄 数据字段映射表250304.md
 ├── 📄 提示词总结记录.md
 ├── 📄 最小功能（MVP）版本开发计划.md

@@ -194,8 +194,8 @@ def import_students():
         current_app.logger.debug(
             f"DEBUG: DataFrame 前5行数据： {df.head().to_string()}")
 
-        # 定义必填字段：教育ID号、学校、班级、姓名、性别、身份证号码
-        required_fields = ["教育ID号", "学校", "班级", "姓名", "性别", "身份证号码"]
+        # 定义必填字段：教育ID号、学校、班级、姓名、性别
+        required_fields = ["教育ID号", "学校", "班级", "姓名", "性别"]
 
         imported_count = 0
         error_messages = []
@@ -274,6 +274,8 @@ def import_students():
                         data_year=data_year,
                         grade=row["年级"].strip() if (
                             "年级" in row and not pd.isna(row["年级"])) else None,
+                        age=int(row["年龄"]) if (
+                            "年龄" in row and not pd.isna(row["年龄"])) else None,
                         height=float(row["身高"]) if not pd.isna(
                             row.get("身高")) else None,
                         weight=float(row["体重"]) if not pd.isna(
@@ -313,6 +315,8 @@ def import_students():
                         baoguan=True if str(
                             row.get("拔罐", "")).strip() == "是" else False,
                         # 干预前视力数据
+                        vision_level=row.get(
+                            "视力等级", None) and float(row["视力等级"]),
                         right_eye_naked=row.get(
                             "右眼-裸眼视力", None) and float(row["右眼-裸眼视力"]),
                         left_eye_naked=row.get(
@@ -396,31 +400,31 @@ def import_students():
                             "左眼散瞳-干预-轴位", None) and float(row["左眼散瞳-干预-轴位"]),
                         # 干预计算字段（必须先转换为字符串再 strip，以防出现数字）
                         interv_vision_level=str(row["【新增】干预后视力等级"]).strip() if (
-                            "【新增】干预后视力等级" in row and not pd.isna(row["【新增】干预后视力等级"])) else None,
+                            "干预后视力等级" in row and not pd.isna(row["干预后视力等级"])) else None,
                         left_naked_change=row.get(
-                            "【新增】左眼裸眼视力变化", None) and float(row["【新增】左眼裸眼视力变化"]),
+                            "左眼裸眼视力变化", None) and float(row["左眼裸眼视力变化"]),
                         right_naked_change=row.get(
-                            "【新增】右眼裸眼视力变化", None) and float(row["【新增】右眼裸眼视力变化"]),
+                            "右眼裸眼视力变化", None) and float(row["右眼裸眼视力变化"]),
                         left_sphere_change=row.get(
-                            "【新增】左眼屈光-球镜变化", None) and float(row["【新增】左眼屈光-球镜变化"]),
+                            "左眼屈光-球镜变化", None) and float(row["左眼屈光-球镜变化"]),
                         right_sphere_change=row.get(
-                            "【新增】右眼屈光-球镜变化", None) and float(row["【新增】右眼屈光-球镜变化"]),
+                            "右眼屈光-球镜变化", None) and float(row["右眼屈光-球镜变化"]),
                         left_cylinder_change=row.get(
-                            "【新增】左眼屈光-柱镜变化", None) and float(row["【新增】左眼屈光-柱镜变化"]),
+                            "左眼屈光-柱镜变化", None) and float(row["左眼屈光-柱镜变化"]),
                         right_cylinder_change=row.get(
-                            "【新增】右眼屈光-柱镜变化", None) and float(row["【新增】右眼屈光-柱镜变化"]),
-                        left_interv_effect=str(row["【新增】左眼视力干预效果"]).strip() if (
-                            "【新增】左眼视力干预效果" in row and not pd.isna(row["【新增】左眼视力干预效果"])) else None,
-                        right_interv_effect=str(row["【新增】右眼视力干预效果"]).strip() if (
-                            "【新增】右眼视力干预效果" in row and not pd.isna(row["【新增】右眼视力干预效果"])) else None,
-                        left_sphere_effect=str(row["【新增】左眼球镜干预效果"]).strip() if (
-                            "【新增】左眼球镜干预效果" in row and not pd.isna(row["【新增】左眼球镜干预效果"])) else None,
-                        right_sphere_effect=str(row["【新增】右眼球镜干预效果"]).strip() if (
-                            "【新增】右眼球镜干预效果" in row and not pd.isna(row["【新增】右眼球镜干预效果"])) else None,
-                        left_cylinder_effect=str(row["【新增】左眼柱镜干预效果"]).strip() if (
-                            "【新增】左眼柱镜干预效果" in row and not pd.isna(row["【新增】左眼柱镜干预效果"])) else None,
-                        right_cylinder_effect=str(row["【新增】右眼柱镜干预效果"]).strip() if (
-                            "【新增】右眼柱镜干预效果" in row and not pd.isna(row["【新增】右眼柱镜干预效果"])) else None,
+                            "右眼屈光-柱镜变化", None) and float(row["右眼屈光-柱镜变化"]),
+                        left_interv_effect=str(row["左眼视力干预效果"]).strip() if (
+                            "左眼视力干预效果" in row and not pd.isna(row["左眼视力干预效果"])) else None,
+                        right_interv_effect=str(row["右眼视力干预效果"]).strip() if (
+                            "右眼视力干预效果" in row and not pd.isna(row["右眼视力干预效果"])) else None,
+                        left_sphere_effect=str(row["左眼球镜干预效果"]).strip() if (
+                            "左眼球镜干预效果" in row and not pd.isna(row["左眼球镜干预效果"])) else None,
+                        right_sphere_effect=str(row["右眼球镜干预效果"]).strip() if (
+                            "右眼球镜干预效果" in row and not pd.isna(row["右眼球镜干预效果"])) else None,
+                        left_cylinder_effect=str(row["左眼柱镜干预效果"]).strip() if (
+                            "左眼柱镜干预效果" in row and not pd.isna(row["左眼柱镜干预效果"])) else None,
+                        right_cylinder_effect=str(row["右眼柱镜干预效果"]).strip() if (
+                            "右眼柱镜干预效果" in row and not pd.isna(row["右眼柱镜干预效果"])) else None,
                         # 干预时间记录（第1次至第16次）
                         interv1=pd.to_datetime(row["第1次干预"]) if (
                             "第1次干预" in row and not pd.isna(row["第1次干预"])) else None,
