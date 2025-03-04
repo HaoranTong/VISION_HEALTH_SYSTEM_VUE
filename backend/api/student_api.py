@@ -11,7 +11,7 @@ r"""
     API接口 URL: /api/student/add
     请求方法: POST
     请求内容类型: application/json
-    参数: JSON格式数据，需包含 education_id, name, school_code,
+    参数: JSON格式数据，需包含 education_id, name, ,
            vision_left, vision_right 等必填字段。
 """
 
@@ -36,7 +36,6 @@ def add_student():
     if (
         not data.get("education_id")
         or not data.get("name")
-        or not data.get("school_code")
         or data.get("vision_left") is None
         or data.get("vision_right") is None
     ):
@@ -44,7 +43,6 @@ def add_student():
     try:
         student = Student(
             education_id=data["education_id"],
-            school_code=data["school_code"],
             name=data["name"],
             vision_left=data["vision_left"],
             vision_right=data["vision_right"],

@@ -17,7 +17,7 @@ sidebar_api = Blueprint('sidebar_api', __name__)
 menu_data = [
     {
         "title": "首页",
-        "link": "#",
+        "link": "/",
         "icon": "bi-house-door",
         "sub_menu": []
     },
@@ -27,12 +27,12 @@ menu_data = [
         "icon": "bi-folder",
         "sub_menu": [
             {"title": "数据导入", "link": "/import", "icon": "bi-upload"},
-            {"title": "数据修改", "link": "#modify", "icon": "bi-pencil"}
+            {"title": "数据修改", "link": "modify", "icon": "bi-pencil"}
         ]
     },
     {
         "title": "数据查询",
-        "link": "#",
+        "link": "query",
         "icon": "bi-search",
         "sub_menu": []
     },

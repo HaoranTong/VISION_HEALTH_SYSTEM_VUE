@@ -1,0 +1,32 @@
+<!-- 文件名称：upload.wxml -->
+<!-- 完整保存路径：miniprogram/pages/upload/upload.wxml -->
+<!-- 功能说明：数据上传页面结构 -->
+<!-- 使用说明：包含文字输入和图片上传组件 -->
+
+<view class="container">
+  <!-- 标题 -->
+  <view class="header">
+    <text>上传干预记录</text>
+  </view>
+
+  <!-- 文字输入 -->
+  <view class="form-item">
+    <textarea 
+      placeholder="请输入干预记录描述" 
+      bindinput="onInputText"
+      value="{{text}}"
+    ></textarea>
+  </view>
+
+  <!-- 图片上传 -->
+  <view class="form-item">
+    <button bindtap="chooseImage">选择图片</button>
+    <view wx:for="{{images}}" wx:key="index" class="image-preview">
+      <image src="{{item}}" mode="aspectFill"></image>
+      <button class="delete-btn" bindtap="deleteImage" data-index="{{index}}">删除</button>
+    </view>
+  </view>
+
+  <!-- 提交按钮 -->
+  <button class="submit-btn" bindtap="submit">提交记录</button>
+</view>

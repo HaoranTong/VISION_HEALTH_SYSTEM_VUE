@@ -1,0 +1,33 @@
+<!-- 文件名称：profile.wxml -->
+<!-- 完整保存路径：miniprogram/pages/profile/profile.wxml -->
+<!-- 功能说明：个人中心页面结构 -->
+<!-- 使用说明：展示和修改用户信息 -->
+
+<view class="container">
+  <!-- 用户头像和昵称 -->
+  <view class="user-info">
+    <image src="{{userInfo.avatarUrl}}" class="avatar"></image>
+    <text class="nickname">{{userInfo.nickName}}</text>
+  </view>
+
+  <!-- 个人信息表单 -->
+  <view class="form">
+    <view class="form-item">
+      <text class="label">姓名</text>
+      <input 
+        placeholder="请输入姓名" 
+        value="{{userInfo.name}}" 
+        bindinput="onNameInput"
+      />
+    </view>
+    <view class="form-item">
+      <text class="label">联系电话</text>
+      <input 
+        placeholder="请输入联系电话" 
+        value="{{userInfo.phone}}" 
+        bindinput="onPhoneInput"
+      />
+    </view>
+    <button class="save-btn" bindtap="saveProfile">保存修改</button>
+  </view>
+</view>

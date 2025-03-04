@@ -2,27 +2,32 @@
 # -*- coding: utf-8 -*-
 """
 文件名称: student_extension.py
-完整存储路径: E:\DEV_CONTEXT\1_Projects\VISION_HEALTH_SYSTEM_VUE\backend\models\student_extension.py
+完整存储路径: backend/models/student_extension.py
 功能说明:
     定义 StudentExtension 模型，用于存储学生扩展信息，包含随时间变化的数据字段，
-    健康信息、视力数据、干预数据及干预计算字段。所有字段名称、数据类型、约束条件及用途说明均与
-    数据字段映射表一致。
-使用方法:
-    通过 SQLAlchemy ORM 对学生扩展数据进行 CRUD 操作。
+    健康信息、视力数据、干预数据及计算字段。该模型支持同一学生在不同数据年份下拥有多条记录，
+    但通过复合唯一约束，确保每个 student_id 与 data_year 的组合在数据库中只存在一条记录。
+    新增字段包括【新增】视力等级、【新增】左眼/右眼屈光-轴位变化，以及【新增】左眼/右眼轴位干预效果，
+    其他字段均严格按照数据字段映射表定义。
+使用说明:
+    通过 SQLAlchemy ORM 对学生扩展数据进行 CRUD 操作，各字段命名、数据类型和长度依据项目需求设计，
+    并与数据导入、查询等模块保持一致。请在重建数据库时确保旧数据已清除，以便新结构正常生成。
 """
 
 from datetime import datetime
 from backend.infrastructure.database import db
+from sqlalchemy import UniqueConstraint
 
 
 class StudentExtension(db.Model):
     __tablename__ = "student_extensions"
+    __table_args__ = (
+        UniqueConstraint('student_id', 'data_year', name='uq_student_year'),
+    )
 
     id = db.Column(db.Integer, primary_key=True)
     student_id = db.Column(db.Integer, db.ForeignKey(
-        "students.id"), nullable=False)
-
-    # 随时间变化的数据字段
+        "students.id"), nullable=False, comment="关联的学生ID")
     data_year = db.Column(db.String(4), nullable=False, comment="数据年份")
     grade = db.Column(db.String(10), nullable=True, comment="学生年级（随数据年份变化）")
     height = db.Column(db.Float, nullable=True, comment="身高（单位：厘米）")
@@ -67,6 +72,10 @@ class StudentExtension(db.Model):
     left_dilated_cylinder = db.Column(
         db.Float, nullable=True, comment="左眼散瞳-柱镜")
     left_dilated_axis = db.Column(db.Float, nullable=True, comment="左眼散瞳-轴位")
+
+    # 【新增】视力等级（根据分析模型判断基本视力等级）
+    vision_level = db.Column(db.String(20), nullable=True, comment="【新增】视力等级")
+
     right_anterior_depth = db.Column(
         db.Float, nullable=True, comment="右眼-前房深度")
     left_anterior_depth = db.Column(db.Float, nullable=True, comment="左眼-前房深度")
@@ -87,7 +96,7 @@ class StudentExtension(db.Model):
     reci_pulse = db.Column(db.Boolean, nullable=True, comment="是否使用热磁脉冲")
     baoguan = db.Column(db.Boolean, nullable=True, comment="是否进行拔罐治疗")
 
-    # 干预数据（干预后数据）
+    # 干预后数据（直接映射）
     right_eye_naked_interv = db.Column(
         db.Float, nullable=True, comment="右眼-干预-裸眼视力")
     left_eye_naked_interv = db.Column(
@@ -116,33 +125,42 @@ class StudentExtension(db.Model):
     left_dilated_axis_interv = db.Column(
         db.Float, nullable=True, comment="左眼散瞳-干预-轴位")
 
-    # 干预计算字段（由后续计算模块更新），初始为空
-    interv_vision_level = db.Column(db.String(20), nullable=True,
-                                    comment="干预后视力等级")
-    left_naked_change = db.Column(db.Float, nullable=True,
-                                  comment="左眼裸眼视力变化")
-    right_naked_change = db.Column(db.Float, nullable=True,
-                                   comment="右眼裸眼视力变化")
-    left_sphere_change = db.Column(db.Float, nullable=True,
-                                   comment="左眼屈光-球镜变化")
-    right_sphere_change = db.Column(db.Float, nullable=True,
-                                    comment="右眼屈光-球镜变化")
-    left_cylinder_change = db.Column(db.Float, nullable=True,
-                                     comment="左眼屈光-柱镜变化")
-    right_cylinder_change = db.Column(db.Float, nullable=True,
-                                      comment="右眼屈光-柱镜变化")
-    left_interv_effect = db.Column(db.String(20), nullable=True,
-                                   comment="左眼干预效果")
-    right_interv_effect = db.Column(db.String(20), nullable=True,
-                                    comment="右眼干预效果")
-    left_sphere_effect = db.Column(db.String(20), nullable=True,
-                                   comment="左眼球镜干预效果")
-    right_sphere_effect = db.Column(db.String(20), nullable=True,
-                                    comment="右眼球镜干预效果")
-    left_cylinder_effect = db.Column(db.String(20), nullable=True,
-                                     comment="左眼柱镜干预效果")
-    right_cylinder_effect = db.Column(db.String(20), nullable=True,
-                                      comment="右眼柱镜干预效果")
+    # 干预计算字段
+    interv_vision_level = db.Column(
+        db.String(20), nullable=True, comment="【新增】干预后视力等级")
+    left_naked_change = db.Column(
+        db.Float, nullable=True, comment="【新增】左眼裸眼视力变化")
+    right_naked_change = db.Column(
+        db.Float, nullable=True, comment="【新增】右眼裸眼视力变化")
+    left_sphere_change = db.Column(
+        db.Float, nullable=True, comment="【新增】左眼屈光-球镜变化")
+    right_sphere_change = db.Column(
+        db.Float, nullable=True, comment="【新增】右眼屈光-球镜变化")
+    left_cylinder_change = db.Column(
+        db.Float, nullable=True, comment="【新增】左眼屈光-柱镜变化")
+    right_cylinder_change = db.Column(
+        db.Float, nullable=True, comment="【新增】右眼屈光-柱镜变化")
+    left_axis_change = db.Column(
+        db.Float, nullable=True, comment="【新增】左眼屈光-轴位变化")
+    right_axis_change = db.Column(
+        db.Float, nullable=True, comment="【新增】右眼屈光-轴位变化")
+
+    left_interv_effect = db.Column(
+        db.String(20), nullable=True, comment="【新增】左眼视力干预效果")
+    right_interv_effect = db.Column(
+        db.String(20), nullable=True, comment="【新增】右眼视力干预效果")
+    left_sphere_effect = db.Column(
+        db.String(20), nullable=True, comment="【新增】左眼球镜干预效果")
+    right_sphere_effect = db.Column(
+        db.String(20), nullable=True, comment="【新增】右眼球镜干预效果")
+    left_cylinder_effect = db.Column(
+        db.String(20), nullable=True, comment="【新增】左眼柱镜干预效果")
+    right_cylinder_effect = db.Column(
+        db.String(20), nullable=True, comment="【新增】右眼柱镜干预效果")
+    left_axis_effect = db.Column(
+        db.String(20), nullable=True, comment="【新增】左眼轴位干预效果")
+    right_axis_effect = db.Column(
+        db.String(20), nullable=True, comment="【新增】右眼轴位干预效果")
 
     # 干预时间记录（共16次）
     interv1 = db.Column(db.DateTime, nullable=True, comment="第1次干预时间")
@@ -163,7 +181,9 @@ class StudentExtension(db.Model):
     interv16 = db.Column(db.DateTime, nullable=True, comment="第16次干预时间")
 
     def to_dict(self):
-        """将模型转换为前端友好的字典格式"""
+        """
+        将模型转换为前端友好的字典格式，便于 JSON 序列化展示
+        """
         return {
             "id": self.id,
             "student_id": self.student_id,
@@ -200,6 +220,7 @@ class StudentExtension(db.Model):
             "left_dilated_sphere": self.left_dilated_sphere,
             "left_dilated_cylinder": self.left_dilated_cylinder,
             "left_dilated_axis": self.left_dilated_axis,
+            "vision_level": self.vision_level,
             "right_anterior_depth": self.right_anterior_depth,
             "left_anterior_depth": self.left_anterior_depth,
             "other_info": self.other_info,
@@ -235,12 +256,16 @@ class StudentExtension(db.Model):
             "right_sphere_change": self.right_sphere_change,
             "left_cylinder_change": self.left_cylinder_change,
             "right_cylinder_change": self.right_cylinder_change,
+            "left_axis_change": self.left_axis_change,
+            "right_axis_change": self.right_axis_change,
             "left_interv_effect": self.left_interv_effect,
             "right_interv_effect": self.right_interv_effect,
             "left_sphere_effect": self.left_sphere_effect,
             "right_sphere_effect": self.right_sphere_effect,
             "left_cylinder_effect": self.left_cylinder_effect,
             "right_cylinder_effect": self.right_cylinder_effect,
+            "left_axis_effect": self.left_axis_effect,
+            "right_axis_effect": self.right_axis_effect,
             "interv1": self.interv1.isoformat() if self.interv1 else None,
             "interv2": self.interv2.isoformat() if self.interv2 else None,
             "interv3": self.interv3.isoformat() if self.interv3 else None,

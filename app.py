@@ -40,9 +40,11 @@ def create_app():
         from backend.api.import_api import import_api
         from backend.api.sidebar_api import sidebar_api
         from backend.api.query_api import query_api  # 新增：引入数据查询蓝图
+
         app.register_blueprint(import_api)
         app.register_blueprint(sidebar_api)
         app.register_blueprint(query_api)  # 新增：注册查询蓝图
+
     except Exception as e:
         app.logger.error(f"蓝图注册错误: {str(e)}")
 
@@ -62,6 +64,11 @@ def create_app():
     @app.route('/query')
     def query_page():
         return render_template('query.html')
+
+    @app.route('/api/students/import', methods=['POST'])
+    def import_students():
+        print("收到上传请求")  # 测试后端是否被调用
+        return {"message": "上传成功"}, 200
 
     return app
 

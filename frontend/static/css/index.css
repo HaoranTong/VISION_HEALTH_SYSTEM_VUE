@@ -1,0 +1,50 @@
+﻿/*
+文件名称: index.css
+完整存储路径: frontend/static/css/index.css
+功能说明:
+    首页专用样式，用于优化统计信息和图表展示的布局和外观，与全局样式(core.css)配合使用。
+    包含统计卡片、图表容器和欢迎信息的样式定义。
+使用方法:
+    仅在首页(index.html)中引入，不影响其他页面。
+*/
+
+/* 统计卡片区域 */
+.stats-container {
+  display: flex;
+  flex-wrap: wrap;
+  gap: 20px;
+  justify-content: center;
+  margin-bottom: 2rem;
+}
+
+.stat-card {
+  padding: 1.5rem;
+  border-radius: 10px;
+  color: white;
+  text-align: center;
+  min-width: 200px;
+}
+
+/* 图表容器 */
+.chart-container {
+  width: 100%;
+  max-width: 900px;
+  margin: 0 auto;
+  padding: 20px;
+}
+
+.chart-card {
+  background: #fff;
+  border-radius: 10px;
+  padding: 1rem;
+  box-shadow: 0 2px 8px rgba(0, 0, 0, 0.1);
+}
+
+/* 欢迎信息样式 */
+.welcome-section {
+  background: #f8f9fa;
+  padding: 2rem;
+  border-radius: 10px;
+  margin-bottom: 2rem;
+  box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}

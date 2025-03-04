@@ -1,0 +1,227 @@
+﻿<!--
+文件名称：query.html
+完整存储路径：frontend/templates/query.html
+功能说明：数据查询页面
+  - 页面顶部固定区域显示常用查询条件：教育ID号、学校、年级、班级、姓名、性别、身份证号码。
+  - 支持下拉选择、模糊输入和精确输入（部分输入框后端处理模糊匹配）。
+  - 查询按钮点击后调用后端查询接口，并在页面中以表格形式展示查询结果。
+  - 同时预留“组合查询”区域，初步隐藏，可后续展开。
+使用方法：通过浏览器访问 /query 页面。
+-->
+<!DOCTYPE html>
+<html lang="zh">
+<head>
+  <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
+  <title>数据查询 - 近视预防干预系统</title>
+  <!-- 引入 Bootstrap CSS 以及 Bootstrap Icons -->
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/css/bootstrap.min.css">
+  <link rel="stylesheet" href="https://cdn.jsdelivr.net/npm/bootstrap-icons/font/bootstrap-icons.css">
+  <!-- 可自行引入全局样式 -->
+</head>
+<body>
+  <!-- 顶部导航栏（可选） -->
+  {% include 'components/topnav/topnav.html' %}
+  
+  <div class="container my-4">
+    <h2>数据查询</h2>
+    <!-- 固定查询条件区域 -->
+    <div class="card mb-3">
+      <div class="card-body">
+        <form id="quickSearchForm" class="row g-3">
+          <div class="col-md-3">
+            <label for="education_id" class="form-label">教育ID号</label>
+            <input type="text" class="form-control" id="education_id" placeholder="请输入教育ID号">
+          </div>
+          <div class="col-md-3">
+            <label for="school" class="form-label">学校</label>
+            <select id="school" class="form-select">
+              <option value="">请选择学校</option>
+              <!-- 示例选项，可在后台配置 -->
+              <option value="学校A">学校A</option>
+              <option value="学校B">学校B</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label for="grade" class="form-label">年级</label>
+            <select id="grade" class="form-select">
+              <option value="">请选择年级</option>
+              <option value="一年级">一年级</option>
+              <option value="二年级">二年级</option>
+              <option value="三年级">三年级</option>
+              <option value="四年级">四年级</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label for="class_name" class="form-label">班级</label>
+            <input type="text" class="form-control" id="class_name" placeholder="请输入班级">
+          </div>
+          <div class="col-md-3">
+            <label for="name" class="form-label">姓名</label>
+            <input type="text" class="form-control" id="name" placeholder="模糊匹配姓名">
+          </div>
+          <div class="col-md-3">
+            <label for="gender" class="form-label">性别</label>
+            <select id="gender" class="form-select">
+              <option value="">请选择性别</option>
+              <option value="男">男</option>
+              <option value="女">女</option>
+            </select>
+          </div>
+          <div class="col-md-3">
+            <label for="id_card" class="form-label">身份证号码</label>
+            <input type="text" class="form-control" id="id_card" placeholder="精确查询">
+          </div>
+          <div class="col-md-3 align-self-end">
+            <button type="button" id="searchBtn" class="btn btn-primary w-100">
+              <i class="bi bi-search"></i> 查询
+            </button>
+          </div>
+          <div class="col-md-3 align-self-end">
+            <button type="button" id="exportBtn" class="btn btn-success w-100">
+              <i class="bi bi-download"></i> 导出
+            </button>
+          </div>
+        </form>
+      </div>
+    </div>
+    
+    <!-- 查询结果展示区域 -->
+    <div id="resultArea">
+      <table class="table table-bordered">
+        <thead>
+          <tr>
+            <th>教育ID号</th>
+            <th>学校</th>
+            <th>班级</th>
+            <th>姓名</th>
+            <th>性别</th>
+            <th>身份证号码</th>
+            <!-- 可按需增加其它列 -->
+          </tr>
+        </thead>
+        <tbody id="resultTableBody">
+          <!-- 查询结果动态填充 -->
+        </tbody>
+      </table>
+      <nav>
+        <ul class="pagination" id="pagination">
+          <!-- 分页按钮动态生成 -->
+        </ul>
+      </nav>
+    </div>
+  </div>
+  
+  <!-- 引入 Bootstrap JS 及依赖 -->
+  <script src="https://cdn.jsdelivr.net/npm/bootstrap@5.3.0/dist/js/bootstrap.bundle.min.js"></script>
+  <script>
+    document.addEventListener('DOMContentLoaded', () => {
+      const searchBtn = document.getElementById('searchBtn');
+      const exportBtn = document.getElementById('exportBtn');
+      const resultTableBody = document.getElementById('resultTableBody');
+      const pagination = document.getElementById('pagination');
+      
+      // 默认分页参数
+      let currentPage = 1;
+      let perPage = 10;
+      
+      function fetchData(exportFlag = false) {
+        // 收集查询条件
+        const params = new URLSearchParams();
+        const education_id = document.getElementById('education_id').value.trim();
+        const school = document.getElementById('school').value.trim();
+        const grade = document.getElementById('grade').value.trim();
+        const class_name = document.getElementById('class_name').value.trim();
+        const name = document.getElementById('name').value.trim();
+        const gender = document.getElementById('gender').value.trim();
+        const id_card = document.getElementById('id_card').value.trim();
+        
+        if (education_id) params.append('education_id', education_id);
+        if (school) params.append('school', school);
+        if (grade) params.append('grade', grade);
+        if (class_name) params.append('班级', class_name);
+        if (name) params.append('name', name);
+        if (gender) params.append('gender', gender);
+        if (id_card) params.append('id_card', id_card);
+        
+        if (!exportFlag) {
+          params.append('page', currentPage);
+          params.append('per_page', perPage);
+        } else {
+          params.append('export', '1');
+        }
+        
+        fetch(`/api/students/query?${params.toString()}`)
+          .then(response => {
+            if (exportFlag) {
+              return response.blob();
+            } else {
+              return response.json();
+            }
+          })
+          .then(data => {
+            if (exportFlag) {
+              // 导出文件，创建一个下载链接并模拟点击
+              const url = window.URL.createObjectURL(data);
+              const a = document.createElement('a');
+              a.style.display = 'none';
+              a.href = url;
+              a.download = 'students_export.xlsx';
+              document.body.appendChild(a);
+              a.click();
+              window.URL.revokeObjectURL(url);
+            } else {
+              // 填充查询结果表格
+              resultTableBody.innerHTML = "";
+              data.students.forEach(student => {
+                const tr = document.createElement('tr');
+                tr.innerHTML = `
+                  <td>${student.education_id || ""}</td>
+                  <td>${student.school || ""}</td>
+                  <td>${student.class_name || ""}</td>
+                  <td>${student.name || ""}</td>
+                  <td>${student.gender || ""}</td>
+                  <td>${student.id_card || ""}</td>
+                `;
+                tr.addEventListener('click', () => {
+                  // 跳转到详情页（可根据需求实现详情页展示）
+                  window.location.href = `/student_detail?id=${student.id}`;
+                });
+                resultTableBody.appendChild(tr);
+              });
+              // 分页按钮更新（这里只做简单示例）
+              pagination.innerHTML = "";
+              const totalPages = Math.ceil(data.total / perPage);
+              for (let i = 1; i <= totalPages; i++) {
+                const li = document.createElement('li');
+                li.className = "page-item" + (i === currentPage ? " active" : "");
+                li.innerHTML = `<a class="page-link" href="#">${i}</a>`;
+                li.addEventListener('click', (e) => {
+                  e.preventDefault();
+                  currentPage = i;
+                  fetchData();
+                });
+                pagination.appendChild(li);
+              }
+            }
+          })
+          .catch(err => {
+            console.error('查询错误:', err);
+          });
+      }
+      
+      searchBtn.addEventListener('click', () => {
+        currentPage = 1; // 重置页码
+        fetchData();
+      });
+      
+      exportBtn.addEventListener('click', () => {
+        fetchData(true);
+      });
+      
+      // 初始加载查询数据
+      fetchData();
+    });
+  </script>
+</body>
+</html>

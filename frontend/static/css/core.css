@@ -6,18 +6,17 @@
 }
 
 .main-content-container {
-    margin-top: 40px;  /* 顶部导航栏高度 */
-    margin-left: 250px;  /* 侧边栏展开宽度 */
+    margin-top: 5px; /* 顶部导航栏高度 */
+    margin-left: var(--current-sidebar-width);
+    width: calc(100% - var(--current-sidebar-width));
     padding: 20px;
     min-height: calc(100vh - 40px);
-    transition: margin-left 0.3s;
+    transition: margin-left 0.3s, width 0.3s;
     background: none !important;
-    display: flex;            /* 新增flex布局 */
-    flex-direction: column;
-    align-items: center;      /* 水平居中 */
-    justify-content: center;  /* 垂直居中 */
-    min-height: calc(100vh - 40px); /* 确保容器高度撑满 */
+    /* 删除垂直居中属性，如果你希望内容自动填满空间 */
+    display: block;
 }
+
 
 /* 欢迎词容器样式 */
 .welcome-section {

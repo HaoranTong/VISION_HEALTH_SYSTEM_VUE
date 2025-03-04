@@ -1,0 +1,39 @@
+﻿/*
+文件名称：query.css
+完整存储路径：frontend/static/css/query.css
+功能说明：为数据查询页面提供独立的 CSS 样式，调整背景色、间距及列配置下拉菜单样式。
+变更说明：
+  1. 调整固定查询条件区域的内边距和行间距，确保整体高度控制在两行内；
+  2. 取消部分内联样式设置，统一由 CSS 控制布局。
+*/
+
+body {
+  background-color: #f8f9fa;
+}
+
+.container.my-4 {
+  margin-top: 10px;
+  padding-bottom: 10px;
+}
+
+/* 固定查询区域 */
+.card.mb-3 {
+  margin-bottom: 2px;
+}
+
+.card-body {
+  padding: 5px 10px; /* 减小内边距，控制高度 */
+}
+
+/* 降低输入框和下拉框的高度已通过 form-control-sm、form-select-sm 实现 */
+
+/* 分页样式 */
+.pagination {
+  margin-top: 10px;
+}
+
+/* 列配置下拉菜单样式 */
+.dropdown-menu {
+  max-height: 300px;
+  overflow-y: auto;
+}
