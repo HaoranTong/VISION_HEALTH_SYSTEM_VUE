@@ -188,6 +188,26 @@
     </div>
   </div>
 
+<!-- 组合查询面板（放在固定查询条件区域之后） -->
+<div class="card mb-3">
+  <div class="card-header">
+    <button class="btn btn-link" type="button" data-bs-toggle="collapse" data-bs-target="#advancedQueryPanel" aria-expanded="false" aria-controls="advancedQueryPanel">
+      展开组合查询
+    </button>
+  </div>
+  <div class="collapse" id="advancedQueryPanel">
+    <div class="card-body">
+      <!-- 组合查询条件容器，用于动态添加条件行 -->
+      <div id="advancedQueryContainer"></div>
+      <div class="mt-2">
+        <button id="addConditionBtn" class="btn btn-sm btn-primary">添加条件</button>
+        <button id="clearConditionsBtn" class="btn btn-sm btn-warning">清除条件</button>
+      </div>
+    </div>
+  </div>
+</div>
+
+
   <!-- 结果展示 -->
   <div id="resultArea">
     <table class="table table-bordered">

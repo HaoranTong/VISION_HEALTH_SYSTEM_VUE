@@ -7,8 +7,10 @@
     定义 StudentExtension 模型，用于存储学生扩展信息，包含随时间变化的数据字段，
     健康信息、视力数据、干预数据及计算字段。该模型支持同一学生在不同数据年份下拥有多条记录，
     但通过复合唯一约束，确保每个 student_id 与 data_year 的组合在数据库中只存在一条记录。
-    新增字段包括【新增】视力等级、【新增】左眼/右眼屈光-轴位变化，以及【新增】左眼/右眼轴位干预效果，
-    以及新增加的“年龄”字段，用于存储学生在导入数据中的年龄信息。
+    新增字段包括视力等级、左眼裸眼视力变化、右眼裸眼视力变化、左眼屈光-球镜变化、右眼屈光-球镜变化、
+    左眼屈光-柱镜变化、右眼屈光-柱镜变化、左眼屈光-轴位变化、右眼屈光-轴位变化、
+    左眼视力干预效果、右眼视力干预效果、左眼球镜干预效果、右眼球镜干预效果、左眼柱镜干预效果、右眼柱镜干预效果、
+    左眼轴位干预效果、右眼轴位干预效果，以及新增加的“年龄”字段，用于存储学生在导入数据中的年龄信息。
 使用说明:
     通过 SQLAlchemy ORM 对学生扩展数据进行 CRUD 操作，各字段命名、数据类型和长度依据项目需求设计，
     并与数据导入、查询等模块保持一致。请在重建数据库时确保旧数据已清除，以便新结构正常生成。
@@ -74,8 +76,8 @@ class StudentExtension(db.Model):
         db.Float, nullable=True, comment="左眼散瞳-柱镜")
     left_dilated_axis = db.Column(db.Float, nullable=True, comment="左眼散瞳-轴位")
 
-    # 【新增】视力等级（根据分析模型判断基本视力等级）
-    vision_level = db.Column(db.String(20), nullable=True, comment="【新增】视力等级")
+    # 视力等级（根据分析模型判断基本视力等级）
+    vision_level = db.Column(db.String(20), nullable=True, comment="视力等级")
 
     right_anterior_depth = db.Column(
         db.Float, nullable=True, comment="右眼-前房深度")
@@ -126,42 +128,38 @@ class StudentExtension(db.Model):
     left_dilated_axis_interv = db.Column(
         db.Float, nullable=True, comment="左眼散瞳-干预-轴位")
 
-    # 干预计算字段
+    # 干预计算字段（转换为字符串再 strip，以防出现数字）
     interv_vision_level = db.Column(
-        db.String(20), nullable=True, comment="【新增】干预后视力等级")
-    left_naked_change = db.Column(
-        db.Float, nullable=True, comment="【新增】左眼裸眼视力变化")
-    right_naked_change = db.Column(
-        db.Float, nullable=True, comment="【新增】右眼裸眼视力变化")
+        db.String(20), nullable=True, comment="干预后视力等级")
+    left_naked_change = db.Column(db.Float, nullable=True, comment="左眼裸眼视力变化")
+    right_naked_change = db.Column(db.Float, nullable=True, comment="右眼裸眼视力变化")
     left_sphere_change = db.Column(
-        db.Float, nullable=True, comment="【新增】左眼屈光-球镜变化")
+        db.Float, nullable=True, comment="左眼屈光-球镜变化")
     right_sphere_change = db.Column(
-        db.Float, nullable=True, comment="【新增】右眼屈光-球镜变化")
+        db.Float, nullable=True, comment="右眼屈光-球镜变化")
     left_cylinder_change = db.Column(
-        db.Float, nullable=True, comment="【新增】左眼屈光-柱镜变化")
+        db.Float, nullable=True, comment="左眼屈光-柱镜变化")
     right_cylinder_change = db.Column(
-        db.Float, nullable=True, comment="【新增】右眼屈光-柱镜变化")
-    left_axis_change = db.Column(
-        db.Float, nullable=True, comment="【新增】左眼屈光-轴位变化")
-    right_axis_change = db.Column(
-        db.Float, nullable=True, comment="【新增】右眼屈光-轴位变化")
+        db.Float, nullable=True, comment="右眼屈光-柱镜变化")
+    left_axis_change = db.Column(db.Float, nullable=True, comment="左眼屈光-轴位变化")
+    right_axis_change = db.Column(db.Float, nullable=True, comment="右眼屈光-轴位变化")
 
     left_interv_effect = db.Column(
-        db.String(20), nullable=True, comment="【新增】左眼视力干预效果")
+        db.String(20), nullable=True, comment="左眼视力干预效果")
     right_interv_effect = db.Column(
-        db.String(20), nullable=True, comment="【新增】右眼视力干预效果")
+        db.String(20), nullable=True, comment="右眼视力干预效果")
     left_sphere_effect = db.Column(
-        db.String(20), nullable=True, comment="【新增】左眼球镜干预效果")
+        db.String(20), nullable=True, comment="左眼球镜干预效果")
     right_sphere_effect = db.Column(
-        db.String(20), nullable=True, comment="【新增】右眼球镜干预效果")
+        db.String(20), nullable=True, comment="右眼球镜干预效果")
     left_cylinder_effect = db.Column(
-        db.String(20), nullable=True, comment="【新增】左眼柱镜干预效果")
+        db.String(20), nullable=True, comment="左眼柱镜干预效果")
     right_cylinder_effect = db.Column(
-        db.String(20), nullable=True, comment="【新增】右眼柱镜干预效果")
+        db.String(20), nullable=True, comment="右眼柱镜干预效果")
     left_axis_effect = db.Column(
-        db.String(20), nullable=True, comment="【新增】左眼轴位干预效果")
+        db.String(20), nullable=True, comment="左眼轴位干预效果")
     right_axis_effect = db.Column(
-        db.String(20), nullable=True, comment="【新增】右眼轴位干预效果")
+        db.String(20), nullable=True, comment="右眼轴位干预效果")
 
     # 干预时间记录（共16次）
     interv1 = db.Column(db.DateTime, nullable=True, comment="第1次干预时间")

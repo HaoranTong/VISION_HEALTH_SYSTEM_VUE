@@ -6,21 +6,20 @@
 功能说明:
     提供学生数据导入功能。支持上传 Excel (.xlsx) 和 CSV (.csv) 文件，
     使用 Pandas 解析文件，对每行数据进行必填字段校验与数据格式转换。
-    合格记录写入数据库：
+    符合条件的记录写入数据库：
       - 学生基本信息保存在 Student 表（不随时间变化的字段）；
       - 随时间变化的数据保存在 StudentExtension 表，包含 data_year 字段。
     重复检测基于 education_id 与 data_year 的组合：
       - 若同一 education_id 且 data_year 相同，则执行部分更新（基本信息和扩展信息中空字段补充，不覆盖已有数据）；
       - 若同一 education_id 但 data_year 不同，则在扩展信息表中新增一条记录。
-    数据导入后，会调用统计计算模块，对单条记录进行计算，
-    更新扩展记录中存储的计算结果（如左眼裸眼视力变化及其标签）。
-使用方法:
-    API接口 URL: /api/students/import
-    请求方法: POST
-    请求内容类型: multipart/form-data
-    参数:
-      - file: 上传的 .xlsx 或 .csv 文件
-      - data_year: 数据年份（由前端下拉选择，格式为4位字符串，如 "2024"）
+    校验失败的记录生成上传失败记录表（仅包含失败行，错误信息标红），并返回上传结果.
+    使用方法:
+      API接口 URL: /api/students/import
+      请求方法: POST
+      请求内容类型: multipart/form-data
+      参数:
+        - file: 上传的 .xlsx 或 .csv 文件
+        - data_year: 数据年份（由前端下拉选择，格式为4位字符串，如 "2024"）
 """
 
 import os
@@ -34,8 +33,6 @@ from sqlalchemy.exc import SQLAlchemyError
 from backend.infrastructure.database import db
 from backend.models.student import Student
 
-# 导入统计计算模块（单记录内计算函数）
-from backend.services.vision_calculation import calculate_within_year_change
 
 ALLOWED_EXTENSIONS = {"xlsx", "csv"}
 
@@ -61,7 +58,7 @@ def validate_row(row, required_fields, row_index: int):
     返回 (is_valid, errors_list)
     """
     errors = []
-    # 必填字段：教育ID号、学校、班级、姓名、性别
+    # 必填字段：教育ID号、学校、班级、姓名、性别、身份证号码
     for field in required_fields:
         if pd.isna(row.get(field, None)):
             errors.append(f"第{row_index+2}行: 缺失必填字段 '{field}'")
@@ -87,30 +84,37 @@ def partial_update_student(student_obj, ext_obj, row, row_index: int, errors: li
     返回 True 表示更新成功，否则返回 False。
     """
     # 基本信息更新
+    # 姓名
     row_val = row.get("姓名", None)
     if not pd.isna(row_val):
         if student_obj.name is None or student_obj.name.strip() == "":
             student_obj.name = str(row_val).strip()
+    # 身份证号码
     row_val = row.get("身份证号码", None)
     if not pd.isna(row_val):
         if student_obj.id_card is None or student_obj.id_card.strip() == "":
             student_obj.id_card = str(row_val).strip()
+    # 家长姓名
     row_val = row.get("家长姓名", None)
     if not pd.isna(row_val):
         if student_obj.parent_name is None or student_obj.parent_name.strip() == "":
             student_obj.parent_name = str(row_val).strip()
+    # 家长电话
     row_val = row.get("家长电话", None)
     if not pd.isna(row_val):
         if student_obj.parent_phone is None or student_obj.parent_phone.strip() == "":
             student_obj.parent_phone = str(row_val).strip()
+    # 联系电话
     row_val = row.get("联系电话", None)
     if not pd.isna(row_val):
         if student_obj.phone is None or student_obj.phone.strip() == "":
             student_obj.phone = str(row_val).strip()
+    # 联系地址
     row_val = row.get("联系地址", None)
     if not pd.isna(row_val):
         if student_obj.contact_address is None or student_obj.contact_address.strip() == "":
             student_obj.contact_address = str(row_val).strip()
+    # 出生日期
     if "出生日期" in row and not pd.isna(row["出生日期"]):
         try:
             bd = pd.to_datetime(row["出生日期"]).date()
@@ -120,7 +124,7 @@ def partial_update_student(student_obj, ext_obj, row, row_index: int, errors: li
             errors.append(f"第{row_index+2}行: '出生日期' 格式错误: {str(e)}")
             return False
 
-    # 扩展信息更新示例（仅处理部分字段，此处可扩展）
+    # 扩展信息更新（示例：年级、身高）
     row_val = row.get("年级", None)
     if not pd.isna(row_val):
         if ext_obj.grade is None or ext_obj.grade.strip() == "":
@@ -134,7 +138,7 @@ def partial_update_student(student_obj, ext_obj, row, row_index: int, errors: li
         except ValueError:
             errors.append(f"第{row_index+2}行: '身高' 数据格式错误")
             return False
-    # ...（其它扩展字段更新逻辑）
+    # 可继续添加其它扩展字段的更新逻辑……
     return True
 
 
@@ -148,7 +152,7 @@ def import_students():
     处理上传的 Excel 或 CSV 文件，解析数据，对每行数据进行必填字段校验和格式转换，
     合格记录写入基本信息表（Student）和扩展信息表（StudentExtension）。
     重复检测基于 education_id 与 data_year 的组合：
-      - 若同一 education_id 且 data_year 相同，则执行部分更新（仅补充为空的字段，不覆盖已有数据）；
+      - 若同一 education_id 且 data_year 相同，则执行部分更新（基本信息和扩展信息中空字段补充，不覆盖已有数据）；
       - 若同一 education_id 但 data_year 不同，则在扩展信息表中新增一条记录（基本信息表不变）。
     校验失败的记录生成上传失败记录表（仅包含失败行，错误信息标红），并返回上传结果。
     """
@@ -162,6 +166,7 @@ def import_students():
     if not allowed_file(file.filename):
         return jsonify({"error": "不支持的文件格式，请上传 .xlsx 或 .csv 文件"}), 400
 
+    # 获取数据年份参数（通过下拉选择，参数名为 data_year）
     data_year = request.form.get("data_year")
     if not data_year:
         return jsonify({"error": "未提供数据年份"}), 400
@@ -182,17 +187,21 @@ def import_students():
             os.remove(temp_filepath)
             return jsonify({"error": "不支持的文件格式"}), 400
 
+        # 清洗列名（去除首尾空白）
         df.columns = df.columns.str.strip()
         current_app.logger.debug(f"DEBUG: DataFrame 列名： {list(df.columns)}")
         current_app.logger.debug(f"DEBUG: DataFrame 行数： {len(df)}")
         current_app.logger.debug(
             f"DEBUG: DataFrame 前5行数据： {df.head().to_string()}")
 
+        # 定义必填字段：教育ID号、学校、班级、姓名、性别
         required_fields = ["教育ID号", "学校", "班级", "姓名", "性别"]
+
         imported_count = 0
         error_messages = []
         failed_rows = set()
 
+        # 延迟导入 StudentExtension 模块
         from backend.models.student_extension import StudentExtension
 
         for index, row in df.iterrows():
@@ -203,14 +212,18 @@ def import_students():
                 continue
 
             edu_id = row["教育ID号"].strip()
+
+            # 查询基本信息记录（Student）
             existing_student = Student.query.filter_by(
                 education_id=edu_id).first()
+            # 若基本记录存在，则查询扩展记录中是否存在相同 data_year 的记录
             existing_extension = None
             if existing_student:
                 existing_extension = StudentExtension.query.filter_by(
                     student_id=existing_student.id, data_year=data_year).first()
 
             if existing_student and existing_extension:
+                # 重复数据：执行部分更新（补充为空的字段）
                 local_errors = []
                 success_update = partial_update_student(
                     existing_student, existing_extension, row, index, local_errors)
@@ -218,14 +231,9 @@ def import_students():
                     error_messages.extend(local_errors)
                     failed_rows.add(index)
                 else:
-                    # 调用单记录计算函数更新计算字段
-                    from backend.services.vision_calculation import calculate_within_year_change
-                    calc_result = calculate_within_year_change(
-                        existing_extension)
-                    for key, value in calc_result.items():
-                        setattr(existing_extension, key, value)
                     imported_count += 1
             else:
+                # 新建基本信息记录（如果不存在）
                 if not existing_student:
                     try:
                         student = Student(
@@ -250,7 +258,7 @@ def import_students():
                                 "家长电话" in row and not pd.isna(row["家长电话"])) else None
                         )
                         db.session.add(student)
-                        db.session.flush()  # 获取 student.id
+                        db.session.flush()  # 确保获取 student.id
                     except (ValueError, SQLAlchemyError) as e:
                         error_messages.append(
                             f"第{index+2}行: 基本信息数据写入错误: {str(e)}")
@@ -260,7 +268,6 @@ def import_students():
                     student = existing_student
 
                 # 新建扩展信息记录（StudentExtension）
-
                 try:
                     extension = StudentExtension(
                         student_id=student.id,
@@ -307,6 +314,7 @@ def import_students():
                             row.get("热磁脉冲", "")).strip() == "是" else False,
                         baoguan=True if str(
                             row.get("拔罐", "")).strip() == "是" else False,
+                        # 干预前视力数据
                         vision_level=row.get(
                             "视力等级", None) and float(row["视力等级"]),
                         right_eye_naked=row.get(
@@ -361,6 +369,7 @@ def import_students():
                             "其他情况" in row and not pd.isna(row["其他情况"])) else None,
                         eye_fatigue=str(row["眼疲劳状况"]).strip() if (
                             "眼疲劳状况" in row and not pd.isna(row["眼疲劳状况"])) else None,
+                        # 干预后数据（直接映射）
                         right_eye_naked_interv=row.get(
                             "右眼-干预-裸眼视力", None) and float(row["右眼-干预-裸眼视力"]),
                         left_eye_naked_interv=row.get(
@@ -389,7 +398,8 @@ def import_students():
                             "左眼散瞳-干预-柱镜", None) and float(row["左眼散瞳-干预-柱镜"]),
                         left_dilated_axis_interv=row.get(
                             "左眼散瞳-干预-轴位", None) and float(row["左眼散瞳-干预-轴位"]),
-                        interv_vision_level=str(row["干预后视力等级"]).strip() if (
+                        # 干预计算字段（必须先转换为字符串再 strip，以防出现数字）
+                        interv_vision_level=str(row["【新增】干预后视力等级"]).strip() if (
                             "干预后视力等级" in row and not pd.isna(row["干预后视力等级"])) else None,
                         left_naked_change=row.get(
                             "左眼裸眼视力变化", None) and float(row["左眼裸眼视力变化"]),
@@ -403,10 +413,6 @@ def import_students():
                             "左眼屈光-柱镜变化", None) and float(row["左眼屈光-柱镜变化"]),
                         right_cylinder_change=row.get(
                             "右眼屈光-柱镜变化", None) and float(row["右眼屈光-柱镜变化"]),
-                        left_axis_change=row.get(
-                            "左眼屈光-轴位变化", None) and float(row["左眼屈光-轴位变化"]),
-                        right_axis_change=row.get(
-                            "右眼屈光-轴位变化", None) and float(row["右眼屈光-轴位变化"]),
                         left_interv_effect=str(row["左眼视力干预效果"]).strip() if (
                             "左眼视力干预效果" in row and not pd.isna(row["左眼视力干预效果"])) else None,
                         right_interv_effect=str(row["右眼视力干预效果"]).strip() if (
@@ -419,7 +425,7 @@ def import_students():
                             "左眼柱镜干预效果" in row and not pd.isna(row["左眼柱镜干预效果"])) else None,
                         right_cylinder_effect=str(row["右眼柱镜干预效果"]).strip() if (
                             "右眼柱镜干预效果" in row and not pd.isna(row["右眼柱镜干预效果"])) else None,
-                        # 干预时间记录
+                        # 干预时间记录（第1次至第16次）
                         interv1=pd.to_datetime(row["第1次干预"]) if (
                             "第1次干预" in row and not pd.isna(row["第1次干预"])) else None,
                         interv2=pd.to_datetime(row["第2次干预"]) if (
@@ -453,11 +459,6 @@ def import_students():
                         interv16=pd.to_datetime(row["第16次干预"]) if (
                             "第16次干预" in row and not pd.isna(row["第16次干预"])) else None
                     )
-                    # 调用单记录内计算函数对新建的扩展记录进行计算，更新计算字段
-                    from backend.services.vision_calculation import calculate_within_year_change
-                    calc_result = calculate_within_year_change(extension)
-                    for key, value in calc_result.items():
-                        setattr(extension, key, value)
                     db.session.add(extension)
                     imported_count += 1
                 except (ValueError, SQLAlchemyError) as e:
@@ -478,6 +479,7 @@ def import_students():
             failures_filename = f"failures_{timestamp}_{filename}.xlsx"
             failures_file_path = os.path.join(
                 FAILURE_UPLOAD_DIR, failures_filename)
+
             df_failed = df.loc[list(failed_rows)].copy()
             error_list = ["" for _ in range(len(df_failed))]
             for i, row_idx in enumerate(df_failed.index):
@@ -486,7 +488,9 @@ def import_students():
                 if row_errors:
                     error_list[i] = "; ".join(row_errors)
             df_failed["错误信息"] = error_list
-            writer = pd.ExcelWriter(failures_file_path, engine='xlsxwriter')
+
+            writer = pd.ExcelWriter(
+                failures_file_path, engine='xlsxwriter')  # pylint: disable=abstract-class-instantiated
             df_failed.to_excel(writer, index=False, sheet_name='Failures')
             workbook = writer.book
             worksheet = writer.sheets['Failures']
@@ -497,6 +501,7 @@ def import_students():
                     worksheet.write(
                         i+1, error_col, df_failed.iloc[i, error_col], red_format)
             writer.close()
+
             failures_file_url = url_for(
                 'static', filename=f'uploads/{failures_filename}', _external=True)
 
@@ -507,6 +512,7 @@ def import_students():
             result_message += f" 失败 {failure_row_count} 条记录。"
             if failures_file_url:
                 result_message += f" 失败记录文件下载链接: {failures_file_url}"
+
         return jsonify({
             "message": result_message,
             "imported_count": imported_count,
