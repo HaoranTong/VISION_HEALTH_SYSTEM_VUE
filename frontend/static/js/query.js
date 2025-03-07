@@ -2,16 +2,17 @@
 文件名称: query.js
 完整存储路径: frontend/static/js/query.js
 功能说明:
-    实现数据查询页面的交互逻辑，动态生成表头和数据行，
-    使得前端展示的列顺序与用户在列配置下拉菜单中的选择保持一致。
-    该脚本会根据列配置选中的字段动态构造表头 (<thead>) 和每一行 (<tr>) 的单元格 (<td>)。
+    实现数据查询页面的交互逻辑，包括固定查询、分页、列配置、导出和调用后端查询接口。
+    此文件中固定查询和分页功能保持不变，不再包含组合查询的相关代码，
+    组合查询功能由独立的 comboQuery.js 模块提供。
 使用说明:
-    在 query.html 页面中通过 <script> 标签引入本脚本，确保相关 DOM 元素存在。
+    在 query.html 中通过 <script> 标签引入本文件，确保 DOM 中固定查询部分正常工作。
 */
 
 document.addEventListener('DOMContentLoaded', function () {
-  // 定义查询条件元素（按白名单获取）
+  // 固定查询条件（白名单）
   const validParams = ['education_id', 'school', 'grade', 'class_name', 'data_year', 'name', 'gender', 'id_card'];
+
   function getQueryParams() {
     const params = new URLSearchParams();
     validParams.forEach(param => {
@@ -21,42 +22,50 @@ document.addEventListener('DOMContentLoaded', function () {
         if (value) params.append(param, value);
       }
     });
+    // 此处组合查询条件由 comboQuery.js 模块收集，存入隐藏输入框 comboConditions
+    const comboConditionsInput = document.getElementById('comboConditions');
+    if (comboConditionsInput && comboConditionsInput.value.trim() !== "") {
+      params.append('advanced_conditions', comboConditionsInput.value.trim());
+    }
+    // 排序参数
+    const sortField = document.getElementById('sortField');
+    const sortOrder = document.getElementById('sortOrder');
+    if (sortField && sortField.value.trim() !== "") {
+      params.append('sort_field', sortField.value.trim());
+    }
+    if (sortOrder && sortOrder.value.trim() !== "") {
+      params.append('sort_order', sortOrder.value.trim());
+    }
     return params;
   }
 
-  // 获取分页与按钮元素
+  // 分页与按钮元素
   const searchBtn = document.getElementById('searchBtn');
   const exportBtn = document.getElementById('exportBtn');
   const clearBtn = document.getElementById('clearBtn');
   const pagination = document.getElementById('pagination');
-  // 列配置相关
-  const selectAllCheckbox = document.getElementById('selectAllColumns');
-  const columnCheckboxes = document.querySelectorAll('.column-checkbox');
-  // 表格头和体部分（确保 query.html 中 <thead> 添加了 id="resultTableHead"）
   const resultTableHead = document.getElementById('resultTableHead');
   const resultTableBody = document.getElementById('resultTableBody');
-  // 默认每页10条数据，当前页1
   let currentPage = 1;
   let perPage = 10;
-  // 全局保存最新查询数据（用于列配置更新时不必重新请求后端）
-  let latestData = [];
+  let latestData = []; // 保存最新查询数据
 
-  // 定义默认展示的列（数据库字段名）
+  // 默认展示列
   const defaultColumns = [
-    "name",
-    "gender",
-    "age",
-    "vision_level",
-    "interv_vision_level",
-    "left_eye_naked",
-    "right_eye_naked",
-    "left_eye_naked_interv",
-    "right_eye_naked_interv",
-    "left_naked_change",
-    "right_naked_change"
+    "school", "grade", "class_name", "name", "gender", "age",
+    "vision_level", "interv_vision_level", "left_naked_change", "right_naked_change",
+    "left_sphere_change", "right_sphere_change"
   ];
 
-  // 根据列配置复选框的状态按页面顺序获取选中的字段
+  // 初始化列配置复选框
+  const columnCheckboxes = document.querySelectorAll('.column-checkbox');
+  function initializeColumnCheckboxes() {
+    columnCheckboxes.forEach(cb => {
+      cb.checked = defaultColumns.includes(cb.value);
+    });
+  }
+  initializeColumnCheckboxes();
+
   function getSelectedColumns() {
     let selected = [];
     columnCheckboxes.forEach(cb => {
@@ -65,22 +74,8 @@ document.addEventListener('DOMContentLoaded', function () {
     return selected;
   }
 
-  // 初始化复选框状态，根据 defaultColumns 设置哪些默认勾选
-  function initializeColumnCheckboxes() {
-    columnCheckboxes.forEach(cb => {
-      if (defaultColumns.includes(cb.value)) {
-        cb.checked = true;
-      } else {
-        cb.checked = false;
-      }
-    });
-  }
-
-  // 根据当前选中的列动态生成表头和数据行
   function renderTable(data) {
     const selectedColumns = getSelectedColumns();
-
-    // 生成表头：遍历复选框顺序，只有选中的生成 <th>
     let headerHTML = '<tr>';
     columnCheckboxes.forEach(cb => {
       if (cb.checked) {
@@ -90,8 +85,6 @@ document.addEventListener('DOMContentLoaded', function () {
     });
     headerHTML += '</tr>';
     resultTableHead.innerHTML = headerHTML;
-
-    // 生成数据行：遍历查询数据，根据 selectedColumns 输出对应 <td>
     let bodyHTML = '';
     data.forEach(record => {
       bodyHTML += '<tr>';
@@ -104,7 +97,6 @@ document.addEventListener('DOMContentLoaded', function () {
     resultTableBody.innerHTML = bodyHTML;
   }
 
-  // 渲染分页控件（简单示例）
   function renderPagination(total) {
     pagination.innerHTML = '';
     const totalPages = Math.ceil(total / perPage);
@@ -121,7 +113,6 @@ document.addEventListener('DOMContentLoaded', function () {
     }
   }
 
-  // 请求查询数据接口
   function fetchData() {
     const params = getQueryParams();
     params.append('page', currentPage);
@@ -133,7 +124,7 @@ document.addEventListener('DOMContentLoaded', function () {
           alert("查询错误: " + result.error);
           return;
         }
-        latestData = result.students; // 保存最新数据
+        latestData = result.students;
         renderTable(latestData);
         renderPagination(result.total);
       })
@@ -142,8 +133,9 @@ document.addEventListener('DOMContentLoaded', function () {
         alert("查询请求错误，请检查控制台");
       });
   }
+  // 将 fetchData() 挂载到全局 window 对象上
+window.fetchData = fetchData;
 
-  // 导出数据（调用导出接口，触发文件下载）
   function exportData() {
     const params = getQueryParams();
     let selectedColumns = getSelectedColumns();
@@ -154,7 +146,6 @@ document.addEventListener('DOMContentLoaded', function () {
     window.location.href = url;
   }
 
-  // 清除查询条件
   function clearData() {
     validParams.forEach(param => {
       const element = document.getElementById(param);
@@ -162,46 +153,40 @@ document.addEventListener('DOMContentLoaded', function () {
         element.value = '';
       }
     });
+    const comboConditionsInput = document.getElementById('comboConditions');
+    if (comboConditionsInput) {
+      comboConditionsInput.value = '';
+    }
     currentPage = 1;
     fetchData();
   }
 
-  // 列配置更新时重新渲染表头和数据行（使用保存的最新数据）
-  function updateTableColumns() {
-    renderTable(latestData);
-  }
-
-  // 绑定事件
-  searchBtn.addEventListener('click', function () {
-    currentPage = 1;
-    fetchData();
-  });
-
-  exportBtn.addEventListener('click', function () {
-    exportData();
-  });
-
-  clearBtn.addEventListener('click', function () {
-    clearData();
-  });
-
-  // 初始化列配置：设置默认勾选状态
-  initializeColumnCheckboxes();
-
-  // 列配置全选
+  const selectAllCheckbox = document.getElementById('selectAllColumns');
   if (selectAllCheckbox) {
     selectAllCheckbox.addEventListener('change', function () {
       const checkAll = selectAllCheckbox.checked;
       columnCheckboxes.forEach(cb => {
         cb.checked = checkAll;
       });
-      updateTableColumns();
+      renderTable(latestData);
     });
   }
   columnCheckboxes.forEach(cb => {
-    cb.addEventListener('change', updateTableColumns);
+    cb.addEventListener('change', function () {
+      renderTable(latestData);
+    });
   });
 
-  // 初始加载数据
+  searchBtn.addEventListener('click', function () {
+    currentPage = 1;
+    fetchData();
+  });
+  exportBtn.addEventListener('click', function () {
+    exportData();
+  });
+  clearBtn.addEventListener('click', function () {
+    clearData();
+  });
+
   fetchData();
 });

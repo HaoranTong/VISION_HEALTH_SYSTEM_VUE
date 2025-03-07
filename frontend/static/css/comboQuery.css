@@ -1,0 +1,67 @@
+﻿/* 
+文件名称: comboQuery.css
+完整存储路径: frontend/static/css/comboQuery.css
+功能说明:
+  封装组合查询模块的独立样式，设计为卡片形式显示组合查询区域，
+  使用全局 CSS 变量统一管理样式参数，便于后续维护和局部覆盖。
+*/
+
+/* 全局 CSS 变量定义 */
+:root {
+  --combo-card-width: 100%;            /* 组合查询卡片宽度设为父容器100% */
+  --combo-card-bg: #ffffff;            /* 卡片背景色 */
+  --combo-header-bg: #f5f5f5;          /* 卡片头部背景色 */
+  --combo-header-border: #ddd;         /* 卡片头部边框颜色 */
+  --combo-font-size: 14px;             /* 基本字体大小 */
+  --combo-condition-height: 300px;     /* 条件区域的最大高度 */
+  --combo-header-padding: 6px 10px;     /* 卡片头部内边距 */
+  --combo-body-padding: 8px;            /* 卡片主体内边距 */
+  --combo-row-margin-bottom: 3px;       /* 每一行条件的下边距 */
+  --combo-control-margin-right: 3px;    /* 条件行内控件的右侧间距 */
+  --combo-extra-margin-top: 3px;        /* 额外复选框区域的上边距 */
+  --combo-extra-padding: 4px;           /* 额外复选框区域内边距 */
+  --combo-extra-border: 1px dashed #ccc; /* 额外复选框区域边框样式 */
+}
+
+/* 组合查询卡片整体样式 */
+.query-card {
+  width: var(--combo-card-width);      /* 使用全局变量设置宽度 */
+  background-color: var(--combo-card-bg);/* 背景色 */
+  font-size: var(--combo-font-size);    /* 字体大小 */
+  border: 1px solid #ccc;
+  margin-bottom: 20px;
+}
+
+/* 卡片头部：操作按钮区域 */
+.query-card .card-header {
+  background-color: var(--combo-header-bg);         /* 头部背景 */
+  border-bottom: 1px solid var(--combo-header-border);  /* 头部边框 */
+  padding: var(--combo-header-padding);              /* 内边距 */
+}
+
+/* 卡片主体：条件区域 */
+.query-card .condition-container {
+  max-height: var(--combo-condition-height);         /* 固定最大高度 */
+  overflow-y: auto;                                  /* 启用垂直滚动 */
+  padding: var(--combo-body-padding);                /* 内边距 */
+  background-color: #fff;
+}
+
+/* 每一行条件 */
+.query-card .condition-row {
+  margin-bottom: var(--combo-row-margin-bottom);     /* 行间距 */
+}
+
+/* 条件行内控件（下拉框、输入框）的右侧间距 */
+.query-card .condition-row .form-select,
+.query-card .condition-row .form-control {
+  margin-right: var(--combo-control-margin-right);
+}
+
+/* 额外复选框区域（针对 multi-select 类型） */
+.query-card .extra-options {
+  margin-top: var(--combo-extra-margin-top);         /* 上边距 */
+  padding: var(--combo-extra-padding);                /* 内边距 */
+  background-color: #f8f8f8;
+  border: var(--combo-extra-border);                  /* 边框样式 */
+}

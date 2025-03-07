@@ -6,17 +6,20 @@
 功能说明：
     实现学生数据查询和导出接口。
     查询接口支持通过 GET 参数过滤数据，并返回 JSON 格式的分页结果。
-    导出接口根据查询条件生成 Excel 文件供下载。
+    此外，新增支持组合查询的功能：通过 advanced_conditions 参数传入多个查询条件，
+    该参数应为 JSON 字符串，格式为数组，每个元素为一个包含 field、operator、value 的条件对象。
 使用说明：
     查询接口 URL: /api/students/query
-    导出接口 URL: /api/students/export
+    示例调用（组合查询示例）:
+      /api/students/query?advanced_conditions=[{"field":"age","operator":">=","value":10},{"field":"name","operator":"like","value":"%张%"}]
 """
 
 import io
 import datetime
 import traceback
+import json
 import pandas as pd
-from flask import Blueprint, request, jsonify, send_file
+from flask import Blueprint, request, jsonify, send_file, current_app
 from backend.models.student import Student
 from backend.models.student_extension import StudentExtension
 from backend.infrastructure.database import db
@@ -60,8 +63,18 @@ def record_to_dict(record):
 
 def build_query():
     """
-    根据请求参数构造查询对象，返回查询和过滤条件列表。
+    根据请求参数构造查询对象。
+
+    固定查询参数：
+      - education_id, school, class_name, name, gender, id_card, data_year, grade
+
+    同时支持组合查询参数 advanced_conditions，
+    该参数为 JSON 字符串，格式为数组，每个元素为：
+      {"field": "<字段名称>", "operator": "<运算符>", "value": "<比较值>"}
+
+    返回构造好的 SQLAlchemy 查询对象。
     """
+    # 获取固定查询参数
     education_id = request.args.get("education_id", "").strip()
     school = request.args.get("school", "").strip()
     data_year = request.args.get("data_year", "").strip()
@@ -71,11 +84,12 @@ def build_query():
     gender = request.args.get("gender", "").strip()
     id_card = request.args.get("id_card", "").strip()
 
+    # 基础查询：Student 与 StudentExtension 通过外连接联结
     query = db.session.query(Student, StudentExtension).outerjoin(
         StudentExtension, Student.id == StudentExtension.student_id
     )
 
-    filters = []
+    # 固定查询条件
     if education_id:
         query = query.filter(Student.education_id.ilike(f"%{education_id}%"))
     if school:
@@ -88,15 +102,51 @@ def build_query():
         query = query.filter(Student.gender == gender)
     if id_card:
         query = query.filter(Student.id_card == id_card)
+    filters = []
     if data_year:
         filters.append(StudentExtension.data_year == data_year)
     if grade:
         filters.append(StudentExtension.grade.ilike(f"%{grade}%"))
+
+    # 新增：处理组合查询的 advanced_conditions 参数
+    advanced_conditions_str = request.args.get(
+        "advanced_conditions", "").strip()
+    if advanced_conditions_str:
+        try:
+            conditions = json.loads(advanced_conditions_str)
+            for cond in conditions:
+                field = cond.get("field")
+                operator = cond.get("operator")
+                value = cond.get("value")
+                if field and operator and value is not None:
+                    # 优先判断 Student 模型中是否有该字段，否则检查 StudentExtension
+                    if hasattr(Student, field):
+                        column = getattr(Student, field)
+                    elif hasattr(StudentExtension, field):
+                        column = getattr(StudentExtension, field)
+                    else:
+                        continue  # 如果字段不匹配则跳过
+                    # 根据运算符构建过滤条件
+                    if operator == "=":
+                        filters.append(column == value)
+                    elif operator == "like":
+                        filters.append(column.ilike(f"%{value}%"))
+                    elif operator == ">":
+                        filters.append(column > value)
+                    elif operator == "<":
+                        filters.append(column < value)
+                    elif operator == ">=":
+                        filters.append(column >= value)
+                    elif operator == "<=":
+                        filters.append(column <= value)
+                    elif operator == "!=":
+                        filters.append(column != value)
+        except Exception as e:
+            current_app.logger.error(f"解析 advanced_conditions 错误: {e}")
+
     if filters:
         query = query.filter(and_(*filters))
-    # 当无过滤条件时，默认只返回前10条数据
-    if not any([education_id, school, data_year, grade, class_name, name, gender, id_card]):
-        query = query.limit(10)
+
     return query
 
 
@@ -104,7 +154,8 @@ def build_query():
 def query_students():
     """
     学生数据查询接口
-    返回 JSON 格式数据，包括学生记录、总记录数、当前页码和每页记录数
+    返回 JSON 格式数据，包括学生记录、总记录数、当前页码和每页记录数。
+    支持固定查询条件和组合查询条件（advanced_conditions）。
     """
     try:
         try:
@@ -118,6 +169,8 @@ def query_students():
 
         query = build_query()
         records = query.all()
+        current_app.logger.info("查询总记录数: %d", len(records))
+
         total = len(records)
         start = (page - 1) * per_page
         end = start + per_page
@@ -132,7 +185,7 @@ def query_students():
         })
     except Exception as e:
         error_msg = traceback.format_exc()
-        print("查询错误:", error_msg)
+        current_app.logger.error(f"查询错误: {error_msg}")
         return jsonify({"error": f"查询错误: {str(e)}"}), 500
 
 
@@ -227,48 +280,13 @@ def export_students():
             "left_dilated_sphere_interv": "左眼散瞳-干预-球镜",
             "left_dilated_cylinder_interv": "左眼散瞳-干预-柱镜",
             "left_dilated_axis_interv": "左眼散瞳-干预-轴位",
-            "interv_vision_level": "干预后视力等级",
-            "left_naked_change": "左眼裸眼视力变化",
-            "right_naked_change": "右眼裸眼视力变化",
-            "left_sphere_change": "左眼屈光-球镜变化",
-            "right_sphere_change": "右眼屈光-球镜变化",
-            "left_cylinder_change": "左眼屈光-柱镜变化",
-            "right_cylinder_change": "右眼屈光-柱镜变化",
-            "left_axis_change": "左眼屈光-轴位变化",
-            "right_axis_change": "右眼屈光-轴位变化",
-            "left_interv_effect": "左眼视力干预效果",
-            "right_interv_effect": "右眼视力干预效果",
-            "left_sphere_effect": "左眼球镜干预效果",
-            "right_sphere_effect": "右眼球镜干预效果",
-            "left_cylinder_effect": "左眼柱镜干预效果",
-            "right_cylinder_effect": "右眼柱镜干预效果",
-            "left_axis_effect": "左眼轴位干预效果",
-            "right_axis_effect": "右眼轴位干预效果",
-            "interv1": "第1次干预",
-            "interv2": "第2次干预",
-            "interv3": "第3次干预",
-            "interv4": "第4次干预",
-            "interv5": "第5次干预",
-            "interv6": "第6次干预",
-            "interv7": "第7次干预",
-            "interv8": "第8次干预",
-            "interv9": "第9次干预",
-            "interv10": "第10次干预",
-            "interv11": "第11次干预",
-            "interv12": "第12次干预",
-            "interv13": "第13次干预",
-            "interv14": "第14次干预",
-            "interv15": "第15次干预",
-            "interv16": "第16次干预"
         }
 
         df = pd.DataFrame(data)
-        # 如果传入了 columns 参数，则只保留该部分列
         selected_columns = request.args.get("columns", None)
         if selected_columns:
             selected_columns = selected_columns.split(",")
             df = df[selected_columns]
-        # 重命名列为中文
         df.rename(columns=COLUMN_NAME_MAPPING, inplace=True)
         output = io.BytesIO()
         with pd.ExcelWriter(output, engine="xlsxwriter") as writer:
