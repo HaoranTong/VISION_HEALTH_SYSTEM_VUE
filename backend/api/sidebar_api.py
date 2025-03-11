@@ -41,8 +41,8 @@ menu_data = [
         "link": "#",
         "icon": "bi-bar-chart-line",
         "sub_menu": [
-            {"title": "视力分布", "link": "#vision-distribution", "icon": "bi-pie-chart"},
-            {"title": "趋势分析", "link": "#vision-change", "icon": "bi-graph-up"}
+            {"title": "统计报表", "link": "report", "icon": "bi-pie-chart"},
+            {"title": "图表展示", "link": "chart", "icon": "bi-graph-up"}
         ]
     },
     {

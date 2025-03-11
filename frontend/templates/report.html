@@ -1,0 +1,89 @@
+﻿{% extends "layouts/base.html" %}
+{% block title %}统计报表 - 近视预防干预系统{% endblock %}
+
+{% block styles %}  
+  <!-- 引入组合查询模块样式 -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/comboQuery.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/report.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+  <!-- 顶部区域：组合查询区域 -->
+  <div class="report-query-row">
+    <div class="card report-combo-query-card">
+      <div class="card-header">
+        <!-- 模板下拉菜单，默认提示为“请选择模版” -->
+        <select id="templateSelect" class="form-select form-select-sm d-inline-block" style="width: auto;">
+          <option value="">请选择模版</option>
+          <option value="template1">按年龄段</option>
+          <option value="template2">按性别</option>
+          <option value="">取消</option>
+        </select>
+        <!-- 新增：统计时间下拉框，显示年份从2023开始 -->
+        <select id="statTime" class="form-select form-select-sm d-inline-block" style="width: auto; margin-left:10px;">
+          <option value="">请选择统计时间</option>
+          {% for year in range(2023, 2031) %}
+          <option value="{{ year }}">{{ year }}</option>
+          {% endfor %}
+        </select>
+        <!-- 新增：报表名称输入框，允许用户自定义报表名称 -->
+        <input type="text" id="reportNameInput" class="form-control form-control-sm d-inline-block" style="width: auto; margin-left:10px;" placeholder="请输入报表名称">
+        <button id="saveTemplateBtn" class="btn btn-sm btn-secondary">保存模板</button>
+        <button id="addConditionBtn" class="btn btn-sm btn-primary">添加条件</button>
+        <!-- 统一取消按钮，清空所有条件和报表显示 -->
+        <button id="clearBtn" class="btn btn-sm btn-warning">取消</button>
+        <button id="reportSearchBtn" class="btn btn-sm btn-success">查询</button>
+      </div>
+      <div class="card-body condition-container">
+        <div id="advancedQueryContainer">
+          <!-- 动态插入组合查询条件行，由 comboQuery_report.js 生成 -->
+        </div>
+        <!-- 隐藏输入框用于存储组合查询条件的 JSON 字符串 -->
+        <input type="hidden" id="comboConditions" value="">
+      </div>
+    </div>
+  </div>
+
+  <!-- 统计报表展示区域，初始状态为空 -->
+  <div class="report-table-row mt-4">
+    <div class="card">
+      <div class="card-header">
+        统计报表
+      </div>
+      <div class="card-body">
+        <!-- 报表标题区：分左右两部分，同一行显示 -->
+        <div id="reportTitleContainer" class="d-flex justify-content-between align-items-center">
+          <h5 id="reportTitle" class="mb-3"></h5>
+          <span id="reportTimeAnnotation" class="mb-3" style="font-size:inherit;"></span>
+        </div>
+        <!-- 报表表格 -->
+        <table class="table table-bordered">
+          <thead id="reportTableHead"></thead>
+          <tbody id="reportTableBody"></tbody>
+        </table>
+        <!-- 分页区域 -->
+        <nav>
+          <ul class="pagination" id="pagination"></ul>
+        </nav>
+      </div>
+      <div class="card-footer text-end">
+        <button id="exportReportBtn" class="btn btn-info btn-sm">
+          <i class="bi bi-download"></i> 导出报表
+        </button>
+        <button id="toChartBtn" class="btn btn-primary btn-sm">
+          <i class="bi bi-bar-chart"></i> 查看图表
+        </button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <!-- 引入专用于报表页面的组合查询模块 JS -->
+  <script src="{{ url_for('static', filename='js/comboQuery_report.js') }}"></script>
+  <!-- 引入报表页面专用 JS -->
+  <script src="{{ url_for('static', filename='js/report.js') }}"></script>
+{% endblock %}

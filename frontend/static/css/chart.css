@@ -1,0 +1,12 @@
+﻿/*
+文件名称: chart.css
+完整存储路径: frontend/static/css/chart.css
+功能说明:
+    定义图示展示页面的局部样式，用于调整图表展示区域的布局。
+使用说明:
+    在 chart.html 中通过 <link> 标签引入本文件。
+*/
+#analysisChart {
+  width: 100%;
+  height: 400px; /* 可根据需要调整图表高度 */
+}

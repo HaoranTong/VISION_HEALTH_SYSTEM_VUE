@@ -1,6 +1,6 @@
 ﻿#!/usr/bin/env python
 # -*- coding: utf-8 -*-
-"""
+r"""
 文件名称: app.py
 完整存储路径: E:\DEV_CONTEXT\1_Projects\VISION_HEALTH_SYSTEM_VUE\app.py
 功能说明:
@@ -40,7 +40,9 @@ def create_app():
         from backend.api.import_api import import_api
         from backend.api.sidebar_api import sidebar_api
         from backend.api.query_api import query_api  # 新增：引入数据查询蓝图
+        from backend.api.analysis_api import analysis_api
 
+        app.register_blueprint(analysis_api)
         app.register_blueprint(import_api)
         app.register_blueprint(sidebar_api)
         app.register_blueprint(query_api)  # 新增：注册查询蓝图
@@ -64,6 +66,14 @@ def create_app():
     @app.route('/query')
     def query_page():
         return render_template('query.html')
+
+    @app.route('/report')
+    def report():
+        return render_template('report.html')
+
+    @app.route('/chart')
+    def chart():
+        return render_template('chart.html')
 
     @app.route('/api/students/import', methods=['POST'])
     def import_students():

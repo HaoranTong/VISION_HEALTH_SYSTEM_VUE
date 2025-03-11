@@ -1,0 +1,131 @@
+﻿<!--
+文件名称: chart.html
+完整存储路径: frontend/templates/chart.html
+功能说明:
+    图表展示页面。页面继承自基础模板 (base.html)，集成固定查询区域、组合查询区域（通过包含 comboQuery.html）以及图表展示区域，
+    利用 Chart.js 绘制图表。通过 /api/analysis/chart 接口获取图表数据并展示。
+使用说明:
+    1. 通过访问 /chart 路由进入此页面。
+    2. 页面包含组合查询区域（comboQuery.html），可对查询条件进行组合设置。
+    3. 图表区域使用 <canvas id="analysisChart"> 展示图表。
+-->
+{% extends "layouts/base.html" %}
+{% block title %}数据展示 - 近视预防干预系统{% endblock %}
+
+{% block styles %}
+<link rel="stylesheet" href="{{ url_for('static', filename='css/chart.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+  <!-- 顶部区域：固定查询区域与组合查询区域并排显示 -->
+  <div class="query-top-row">
+    <!-- 固定查询区域 -->
+    <div class="card fixed-query-card">
+      <!-- 第一排：固定查询条件 -->
+      <div class="card-body p-2 fixed-query-first-row">
+        <div class="row g-0 mb-1">
+          <div class="col-md-2">
+            <input type="text" class="form-control form-control-sm" id="education_id" placeholder="教育ID号">
+          </div>
+          <div class="col-md-2">
+            <select id="school" class="form-select form-select-sm">
+              <option value="">请选择学校</option>
+              <option>苏宁红军小学</option>
+              <option>华兴小学</option>
+              <option>师大附小清华小学</option>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <select id="grade" class="form-select form-select-sm">
+              <option value="">请选择年级</option>
+              <option>一年级</option>
+              <option>二年级</option>
+              <option>三年级</option>
+              <option>四年级</option>
+              <option>五年级</option>
+            </select>
+          </div>
+          <div class="col-md-2">
+            <input type="text" class="form-control form-control-sm" id="class_name" placeholder="班级">
+          </div>
+          <div class="col-md-2">
+            <select id="data_year" class="form-select form-select-sm">
+              <option value="">请选择年份</option>
+              {% for year in range(2023, 2028) %}
+              <option>{{ year }}</option>
+              {% endfor %}
+            </select>
+          </div>
+        </div>
+      </div>
+      <!-- 第二排：固定查询条件 -->
+      <div class="card-body p-2 fixed-query-second-row">
+        <div class="row g-0">
+          <div class="col-md-2 name-col">
+            <input type="text" class="form-control form-control-sm" id="name" placeholder="姓名">
+          </div>
+          <div class="col-md-2 gender-col">
+            <select id="gender" class="form-select form-select-sm">
+              <option value="">请选择性别</option>
+              <option>男</option>
+              <option>女</option>
+            </select>
+          </div>
+          <div class="col-md-2 idcard-col">
+            <input type="text" class="form-control form-control-sm" id="id_card" placeholder="身份证号码">
+          </div>
+          <div class="col-md-6 buttons-col fixed-query-buttons text-end">
+            <button id="searchBtn" class="btn btn-primary btn-sm me-1">
+              <i class="bi bi-search"></i> 查询
+            </button>
+            <button id="exportBtn" class="btn btn-success btn-sm me-1">
+              <i class="bi bi-download"></i> 导出
+            </button>
+            <button id="clearBtn" class="btn btn-warning btn-sm me-1">
+              清除
+            </button>
+            <div class="dropdown d-inline-block">
+              <button class="btn btn-secondary btn-sm dropdown-toggle" data-bs-toggle="dropdown">
+                列配置
+              </button>
+              <ul class="dropdown-menu">
+                <li><div class="dropdown-item"><input type="checkbox" class="column-checkbox" value="data_year" checked> 数据年份</div></li>
+                <li><div class="dropdown-item"><input type="checkbox" class="column-checkbox" value="education_id" checked> 教育ID号</div></li>
+                <li><div class="dropdown-item"><input type="checkbox" class="column-checkbox" value="school" checked> 学校</div></li>
+                <li><div class="dropdown-item"><input type="checkbox" class="column-checkbox" value="grade" checked> 年级</div></li>
+                <li><div class="dropdown-item"><input type="checkbox" class="column-checkbox" value="class_name" checked> 班级</div></li>
+                <li><div class="dropdown-item"><input type="checkbox" class="column-checkbox" value="name" checked> 姓名</div></li>
+                <li><div class="dropdown-item"><input type="checkbox" class="column-checkbox" value="gender" checked> 性别</div></li>
+                <li><div class="dropdown-item"><input type="checkbox" class="column-checkbox" value="age" checked> 年龄</div></li>
+                <li><div class="dropdown-item"><input type="checkbox" class="column-checkbox" value="vision_level" checked> 视力等级</div></li>
+                <li><div class="dropdown-item"><input type="checkbox" class="column-checkbox" value="interv_vision_level" checked> 干预后视力等级</div></li>
+                <!-- 其他列配置项可根据需求添加 -->
+              </ul>
+            </div>
+          </div>
+        </div>
+      </div>
+    </div>
+    <!-- 组合查询区域：调用组合查询模块组件 -->
+    <div class="card combo-query-card">
+      {% include "comboQuery.html" %}
+    </div>
+  </div>
+  <!-- 图示展示区域 -->
+  <div id="chartArea">
+    <canvas id="analysisChart"></canvas>
+  </div>
+  <!-- 页面底部：切换到统计报表页面按钮 -->
+  <div class="text-center mt-3">
+    <button id="toReportBtn" class="btn btn-info btn-sm">切换到统计报表</button>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script src="{{ url_for('static', filename='js/chart.js') }}"></script>
+  <!-- 引入组合查询模块的 JS 文件 -->
+  <script src="{{ url_for('static', filename='js/comboQuery.js') }}"></script>
+{% endblock %}
