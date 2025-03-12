@@ -1,4 +1,23 @@
-﻿{% extends "layouts/base.html" %}
+﻿<!--
+文件名称: report.html
+完整存储路径: frontend/templates/report.html
+功能说明:
+  统计报表页面，用于展示经过统计分析后的数据报表。
+  页面包含组合查询区域、报表展示区域、分页控件及操作按钮。
+  支持预设模板查询和自定义组合查询两种模式，通过新增查询模式切换下拉框（id="queryMode"）实现互斥操作。
+  用户在预设模板模式下使用模板下拉框；在自定义查询模式下禁用模板下拉框，并启用组合查询条件（存储在隐藏输入框 "comboConditions" 中）。
+使用说明:
+  - 页面继承自基础模板 (layouts/base.html)；
+  - 必须确保页面中包含以下 DOM 元素：
+      * 查询模式切换下拉框 (id="queryMode")
+      * 模板下拉框 (id="templateSelect")
+      * 统计时间下拉框 (id="statTime")
+      * 报表名称输入框 (id="reportNameInput")
+      * 条件容器 (id="advancedQueryContainer")
+      * 隐藏输入框 (id="comboConditions")
+      * 查询、保存模板、添加条件、取消、导出和切换图表按钮
+-->
+{% extends "layouts/base.html" %}
 {% block title %}统计报表 - 近视预防干预系统{% endblock %}
 
 {% block styles %}  
@@ -9,35 +28,41 @@
 
 {% block content %}
 <div class="container my-4">
-  <!-- 顶部区域：组合查询区域 -->
+  <!-- 查询区域 -->
   <div class="report-query-row">
     <div class="card report-combo-query-card">
       <div class="card-header">
-        <!-- 模板下拉菜单，默认提示为“请选择模版” -->
+        <!-- 模板下拉菜单：用于预设模板查询模式 -->
         <select id="templateSelect" class="form-select form-select-sm d-inline-block" style="width: auto;">
           <option value="">请选择模版</option>
           <option value="template1">按年龄段</option>
           <option value="template2">按性别</option>
           <option value="">取消</option>
         </select>
-        <!-- 新增：统计时间下拉框，显示年份从2023开始 -->
+        <!-- 统计时间下拉框 -->
         <select id="statTime" class="form-select form-select-sm d-inline-block" style="width: auto; margin-left:10px;">
           <option value="">请选择统计时间</option>
           {% for year in range(2023, 2031) %}
-          <option value="{{ year }}">{{ year }}</option>
+            <option value="{{ year }}">{{ year }}</option>
           {% endfor %}
         </select>
-        <!-- 新增：报表名称输入框，允许用户自定义报表名称 -->
+        <!-- 报表名称输入框 -->
         <input type="text" id="reportNameInput" class="form-control form-control-sm d-inline-block" style="width: auto; margin-left:10px;" placeholder="请输入报表名称">
+        <!-- 查询模式切换下拉框：新增控件，用于切换预设模板和自定义查询 -->
+        <select id="queryMode" class="form-select form-select-sm d-inline-block" style="width: auto; margin-left:10px;">
+          <option value="template" selected>预设模板查询</option>
+          <option value="custom">自定义查询</option>
+        </select>
         <button id="saveTemplateBtn" class="btn btn-sm btn-secondary">保存模板</button>
         <button id="addConditionBtn" class="btn btn-sm btn-primary">添加条件</button>
-        <!-- 统一取消按钮，清空所有条件和报表显示 -->
+        <!-- 统一取消按钮：重置所有查询状态 -->
         <button id="clearBtn" class="btn btn-sm btn-warning">取消</button>
         <button id="reportSearchBtn" class="btn btn-sm btn-success">查询</button>
       </div>
       <div class="card-body condition-container">
+        <!-- 组合查询条件由 comboQuery_report.js 动态生成 -->
         <div id="advancedQueryContainer">
-          <!-- 动态插入组合查询条件行，由 comboQuery_report.js 生成 -->
+          <!-- 动态生成的查询条件行 -->
         </div>
         <!-- 隐藏输入框用于存储组合查询条件的 JSON 字符串 -->
         <input type="hidden" id="comboConditions" value="">
@@ -45,14 +70,12 @@
     </div>
   </div>
 
-  <!-- 统计报表展示区域，初始状态为空 -->
+  <!-- 报表展示区域 -->
   <div class="report-table-row mt-4">
     <div class="card">
-      <div class="card-header">
-        统计报表
-      </div>
+      <div class="card-header">统计报表</div>
       <div class="card-body">
-        <!-- 报表标题区：分左右两部分，同一行显示 -->
+        <!-- 报表标题区：左侧显示报表名称，右侧显示统计时间附注 -->
         <div id="reportTitleContainer" class="d-flex justify-content-between align-items-center">
           <h5 id="reportTitle" class="mb-3"></h5>
           <span id="reportTimeAnnotation" class="mb-3" style="font-size:inherit;"></span>
@@ -62,18 +85,14 @@
           <thead id="reportTableHead"></thead>
           <tbody id="reportTableBody"></tbody>
         </table>
-        <!-- 分页区域 -->
+        <!-- 分页控件 -->
         <nav>
           <ul class="pagination" id="pagination"></ul>
         </nav>
       </div>
       <div class="card-footer text-end">
-        <button id="exportReportBtn" class="btn btn-info btn-sm">
-          <i class="bi bi-download"></i> 导出报表
-        </button>
-        <button id="toChartBtn" class="btn btn-primary btn-sm">
-          <i class="bi bi-bar-chart"></i> 查看图表
-        </button>
+        <button id="exportReportBtn" class="btn btn-info btn-sm"><i class="bi bi-download"></i> 导出报表</button>
+        <button id="toChartBtn" class="btn btn-primary btn-sm"><i class="bi bi-bar-chart"></i> 查看图表</button>
       </div>
     </div>
   </div>
@@ -82,7 +101,7 @@
 
 {% block scripts %}
   {{ super() }}
-  <!-- 引入专用于报表页面的组合查询模块 JS -->
+  <!-- 引入组合查询模块 JS -->
   <script src="{{ url_for('static', filename='js/comboQuery_report.js') }}"></script>
   <!-- 引入报表页面专用 JS -->
   <script src="{{ url_for('static', filename='js/report.js') }}"></script>

@@ -9,6 +9,10 @@
 使用说明:
     在 report.html 中通过 <link> 标签引入本文件。
 */
+body {
+    font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+}
+
 
 .container.my-4 {
   margin-top: 20px;

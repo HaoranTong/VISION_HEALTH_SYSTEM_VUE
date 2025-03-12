@@ -5,54 +5,16 @@
 完整存储路径: backend/api/analysis_api.py
 
 功能说明:
-  1. 提供统计报表数据接口 (/api/analysis/report)，支持:
-     - 固定模板 (template1=按年龄段, template2=按性别)
-     - 自由组合查询 (advanced_conditions)，可包含多指标、分组、过滤
-     - 分页及报表合计行
-  2. 提供图表数据接口 (/api/analysis/chart)，返回适用于 Chart.js 的数据。
+  1. 提供统计报表数据接口 (/api/analysis/report)，支持固定模板（template1=按年龄段, template2=按性别）
+     和自由组合查询（advanced_conditions）。
+  2. 当使用自由组合查询且只存在一个统计指标 (role="metric") 时，自动检测该字段的 distinct 值，
+     并为每个 distinct 值生成“数量”和“占比”两列，构造多层表头。
+  3. 若存在多个统计指标，或未指定 metric，则仍旧使用示例化的“临床前期近视、轻度近视、中度近视、视力不良”列。
+  4. 提供图表数据接口 (/api/analysis/chart) 返回适用于 Chart.js 的数据格式。
 
-使用说明:
-  - 将此文件放置于 backend/api/ 目录下，并在 Flask 主应用中注册该蓝图:
-      from backend.api.analysis_api import analysis_api
-      app.register_blueprint(analysis_api)
-  - 固定模板:
-      template=template1 => 按年龄段分组 (6-9岁, 10-12岁, 其他)
-      template=template2 => 按性别分组 (男, 女, 其他)
-  - 自由组合:
-      advanced_conditions 为 JSON 字符串数组，每个元素格式:
-         {
-           "role": "metric"/"group"/"filter",
-           "field": "<字段名称>",
-           "operator": "<= / >= / like / in / ...>",
-           "value": "<具体值或数组或区间>"
-         }
-      其中:
-        * 同一字段多个取值 => OR 逻辑
-        * 不同字段 => AND 逻辑
-  - 数据年份 (stat_time) 可单独传入，若未提供则默认当前年份
-  - 注意: 当 advanced_conditions 存在时，template 参数被忽略，以避免冲突
-
-导入模块说明:
-  - json, datetime: 用于解析请求参数与获取当前年份
-  - flask: Blueprint, request, jsonify, current_app 提供路由和日志支持
-  - sqlalchemy: func, case, and_, or_, literal, cast, Integer 用于SQL表达式构造
-  - backend.models: Student, StudentExtension 数据库模型定义
-  - backend.infrastructure.database: db 全局数据库实例
-
-修改要点:
-  1. 避免对 SQLAlchemy 表达式使用 if not grouping_expr 判断，改为 if grouping_expr is None 判断。
-  2. 显式将布尔表达式转换为整数 (cast(..., Integer))，避免统计列出现布尔值。
-  3. 修正 case() 用法，使用星号展开方式传递位置参数，适配最新 SQLAlchemy 版本。
-  4. 自由组合查询中，对于字段“age”，支持：
-     - 当 advanced_conditions 中输入的是区间条件（字典包含 "min" 与 "max"）时，构造 case() 表达式，对每个区间生成分组标签；
-     - 如果未输入区间，则直接按 StudentExtension.age 分组，使每个具体年龄独立一行。
-  5. 在自由组合查询中记录第一个分组字段，并在表头生成时根据该字段动态显示正确的分组名称（如“年龄”或“性别”），而不是固定显示“分组”。
-  6. “视力不良”统计计算恢复为：临床前期近视 + 轻度近视 + 中度近视。
-  7. 保留原有功能，确保不破坏之前正常使用的功能。
-
---------------------------------------------------------------------------------
-以下是完整的 analysis_api.py 源码:
---------------------------------------------------------------------------------
+注意:
+  1. 此示例仅演示单个统计指标的动态列生成，不支持一次选择多个指标 (需要更复杂的 pivot)。
+  2. 若要支持更多高级逻辑（如三层表头、多字段并行统计），请在此基础上扩展。
 """
 
 import json
@@ -65,28 +27,30 @@ from backend.models.student_extension import StudentExtension
 
 analysis_api = Blueprint("analysis_api", __name__)
 
+# 定义允许的组合查询字段列表
+complete_fields = {
+    "data_year", "education_id", "school", "grade", "class_name", "name", "gender", "age",
+    "vision_level", "interv_vision_level", "left_eye_naked", "right_eye_naked",
+    "left_eye_naked_interv", "right_eye_naked_interv", "left_naked_change", "right_naked_change",
+    "left_sphere_change", "right_sphere_change", "left_cylinder_change", "right_cylinder_change",
+    "left_axis_change", "right_axis_change", "left_interv_effect", "right_interv_effect",
+    "left_sphere_effect", "right_sphere_effect", "left_cylinder_effect", "right_cylinder_effect",
+    "left_axis_effect", "right_axis_effect", "left_eye_corrected", "right_eye_corrected",
+    "left_keratometry_K1", "right_keratometry_K1", "left_keratometry_K2", "right_keratometry_K2",
+    "left_axial_length", "right_axial_length", "left_sphere", "left_cylinder", "left_axis",
+    "right_sphere", "right_cylinder", "right_axis", "left_dilated_sphere", "left_dilated_cylinder",
+    "left_dilated_axis", "right_dilated_sphere", "right_dilated_cylinder", "right_dilated_axis",
+    "left_sphere_interv", "left_cylinder_interv", "left_axis_interv", "right_sphere_interv",
+    "right_cylinder_interv", "right_axis_interv", "left_dilated_sphere_interv", "left_dilated_cylinder_interv",
+    "left_dilated_axis_interv", "right_dilated_sphere_interv", "right_dilated_cylinder_interv", "right_dilated_axis_interv",
+    "guasha", "aigiu", "zhongyao_xunzheng", "rejiu_training", "xuewei_tiefu", "reci_pulse", "baoguan",
+    "frame_glasses", "contact_lenses", "night_orthokeratology"
+}
+
 
 @analysis_api.route("/api/analysis/report", methods=["GET"])
 def analysis_report():
-    """
-    统计报表数据接口:
-      前端可通过以下参数控制:
-        - template: "template1"=按年龄段, "template2"=按性别
-        - advanced_conditions: JSON字符串, 用于自由组合查询(可包含多指标/分组)
-        - stat_time: 数据年份(如 "2023"), 若不传则默认当前年份
-        - school: 学校名称(可选)
-        - page, per_page: 分页参数
-        - report_name: 自定义报表名称(可选)
-
-    返回 JSON 格式:
-    {
-      "tableName": "...",
-      "header": [...],
-      "rows": [...],
-      "total": <int>  // 不含合计行的分组总数
-    }
-    """
-    # ========== 1. 解析请求参数 ==========
+    # 1. 解析请求参数
     template = request.args.get("template", "").strip()
     advanced_str = request.args.get("advanced_conditions", "").strip()
     stat_time = request.args.get("stat_time", "").strip()
@@ -104,141 +68,107 @@ def analysis_report():
 
     current_app.logger.debug(
         f"[analysis_report] stat_time={stat_time}, school={school}, "
-        f"template={template}, advanced_conditions={advanced_str}, "
-        f"page={page}, per_page={per_page}"
+        f"template={template}, advanced={advanced_str}, page={page}, per_page={per_page}"
     )
 
-    # ========== 2. 基础查询 ==========
+    # 2. 构造基础查询
     query = db.session.query(StudentExtension, Student).join(
         Student, StudentExtension.student_id == Student.id
     )
-
-    # 2.1 过滤 data_year
     if stat_time:
         query = query.filter(StudentExtension.data_year == stat_time)
     else:
         current_year = str(datetime.datetime.now().year)
         query = query.filter(StudentExtension.data_year == current_year)
         stat_time = current_year
-
-    # 2.2 过滤 school(若有)
     if school:
         query = query.filter(Student.school == school)
 
-    # ========== 3. 解析 advanced_conditions ==========
-    # "metric" => 统计指标, "group" => 分组, "filter" => 过滤
-    grouping_cols = []
-    metric_values = []
-    filters = []
-    free_group_field = None  # 用于记录自由组合查询中第一个分组字段
+    # 3. 判断是否为固定模板模式
+    use_fixed_template = False
+    if template in ["template1", "template2"]:
+        use_fixed_template = True
+        current_app.logger.debug(
+            f"[analysis_report] Using fixed template: {template}")
+        advanced_str = ""  # 忽略 advanced_conditions
 
-    if advanced_str:
+    grouping_cols = []
+    filters = []
+    free_group_field = None
+    metric_list = []  # 修改: 用列表存储所有 metric 字段
+
+    # 4. 解析自由组合查询
+    if not use_fixed_template and advanced_str:
         try:
             adv_conds = json.loads(advanced_str)
             current_app.logger.debug(
                 "[analysis_report] Parsing advanced_conditions...")
-
-            field_to_values = {}
-            field_to_roles = {}
             for cond in adv_conds:
                 role = cond.get("role", "").strip().lower()
                 field = cond.get("field", "").strip()
                 op = cond.get("operator", "").strip().lower()
                 val = cond.get("value", None)
-
                 current_app.logger.debug(
                     f"[analysis_report] Condition => role={role}, field={field}, operator={op}, value={val}"
                 )
-
-                if not field:
+                if not field or field not in complete_fields:
+                    current_app.logger.warning(
+                        f"[analysis_report] Field '{field}' not allowed or empty, ignore."
+                    )
                     continue
-
-                field_to_roles.setdefault(field, set()).add(role)
-                field_to_values.setdefault(field, []).append((op, val))
-                if role == "group" and free_group_field is None:
-                    free_group_field = field
-
-            for f_field, cond_list in field_to_values.items():
-                if hasattr(StudentExtension, f_field):
-                    col = getattr(StudentExtension, f_field)
-                elif hasattr(Student, f_field):
-                    col = getattr(Student, f_field)
+                if hasattr(StudentExtension, field):
+                    col = getattr(StudentExtension, field)
+                elif hasattr(Student, field):
+                    col = getattr(Student, field)
                 else:
                     current_app.logger.warning(
-                        f"[analysis_report] Unknown field: {f_field}")
+                        f"[analysis_report] Unknown field: {field}"
+                    )
                     continue
 
-                roleset = field_to_roles[f_field]
-
-                # 分组字段处理
-                if "group" in roleset:
-                    if f_field == "age":
-                        # 对于 age，判断是否有区间条件
-                        age_ranges = []
-                        for (op_, v_) in cond_list:
-                            if isinstance(v_, dict) and "min" in v_ and "max" in v_:
-                                try:
-                                    minv = int(v_["min"])
-                                    maxv = int(v_["max"])
-                                    age_ranges.append((minv, maxv))
-                                except Exception:
-                                    pass
-                        if age_ranges:
-                            # 构造 case() 表达式：支持多个区间，所有区间条件用位置参数传递
-                            whens = []
-                            for (minv, maxv) in age_ranges:
-                                whens.append(
-                                    (and_(col >= minv, col <= maxv), literal(f"{minv}-{maxv}岁")))
-                            grouping_expr_age = case(
-                                *whens, else_=literal("其他"))
-                            grouping_cols.append(grouping_expr_age)
-                        else:
-                            # 无区间条件，直接用 age 进行分组
-                            grouping_cols.append(col)
+                if role == "group":
+                    if free_group_field is None:
+                        free_group_field = field
+                    grouping_cols.append(col)
+                elif role == "metric":
+                    # 收集 metric 字段
+                    metric_list.append(field)
+                elif role == "filter":
+                    if isinstance(val, dict) and "min" in val and "max" in val:
+                        try:
+                            minv = float(val["min"])
+                            maxv = float(val["max"])
+                            filters.append(col >= minv)
+                            filters.append(col <= maxv)
+                        except Exception:
+                            pass
+                    elif isinstance(val, list):
+                        filters.append(col.in_(val))
                     else:
-                        grouping_cols.append(col)
-
-                # 统计指标处理
-                if "metric" in roleset:
-                    all_vals = []
-                    for (op_, v_) in cond_list:
-                        if isinstance(v_, list):
-                            all_vals.extend(v_)
-                        else:
-                            all_vals.append(v_)
-                    all_vals = list(set(all_vals))
-                    metric_values.extend(all_vals)
-
-                # 过滤条件处理
-                if "filter" in roleset or (("metric" not in roleset) and ("group" not in roleset)):
-                    for (op_, v_) in cond_list:
-                        if isinstance(v_, dict) and "min" in v_ and "max" in v_:
-                            try:
-                                minv = float(v_["min"])
-                                maxv = float(v_["max"])
-                                filters.append(col >= minv)
-                                filters.append(col <= maxv)
-                            except Exception:
-                                pass
-                        elif isinstance(v_, list):
-                            filters.append(col.in_(v_))
-                        else:
-                            filters.append(col == v_)
+                        if op == '=':
+                            filters.append(col == val)
+                        elif op == '!=':
+                            filters.append(col != val)
+                        elif op == 'like':
+                            filters.append(col.ilike(f"%{val}%"))
+                        elif op == '>':
+                            filters.append(col > val)
+                        elif op == '<':
+                            filters.append(col < val)
+                        elif op == '>=':
+                            filters.append(col >= val)
+                        elif op == '<=':
+                            filters.append(col <= val)
         except Exception as e:
             current_app.logger.error(
                 f"[analysis_report] Error parsing advanced_conditions: {e}")
 
-    # ========== 4. 判断是否使用固定模板 ==========
-    use_fixed_template = False
-    if (not advanced_str) and template in ["template1", "template2"]:
-        use_fixed_template = True
-        current_app.logger.debug(
-            f"[analysis_report] Using fixed template: {template}")
-
+    # 5. 构造分组表达式
     grouping_expr = None
     if use_fixed_template:
+        # 模板模式
         if template == "template1":
-            # 固定模板1：按年龄段，固定为 6-9岁 和 10-12岁
+            # 按年龄段
             grouping_expr = case(
                 (and_(StudentExtension.age >= 6,
                  StudentExtension.age <= 9), literal("6-9岁")),
@@ -247,28 +177,152 @@ def analysis_report():
                 else_=literal("其他")
             )
         elif template == "template2":
+            # 按性别
             grouping_expr = Student.gender
     else:
-        if len(grouping_cols) == 1:
+        # 自由组合
+        if len(grouping_cols) >= 1:
             grouping_expr = grouping_cols[0]
-        elif len(grouping_cols) > 1:
-            grouping_expr = tuple(grouping_cols)
-        else:
-            grouping_expr = None
 
     if grouping_expr is None:
         current_app.logger.error("[analysis_report] 分组条件未设置")
         return jsonify({"error": "未设置分组条件，请检查查询设置"}), 400
 
-    # ========== 5. 应用过滤条件 ==========
     if filters:
         query = query.filter(and_(*filters))
 
-    # ========== 6. 应用分组 & 聚合统计 ==========
-    query = query.group_by(grouping_expr)
+    try:
+        query = query.group_by(grouping_expr)
+    except Exception as e:
+        current_app.logger.error(f"[analysis_report] group_by error: {e}")
+        return jsonify({"error": "分组条件错误，请检查查询设置"}), 400
 
-    # 统计指标：
-    # “视力不良” = 临床前期近视 + 轻度近视 + 中度近视
+    # ============= 6. 根据 metric_list 判断统计指标 =============
+    # 场景1: use_fixed_template = True => 按“临床前期近视/轻度近视/中度近视/视力不良”方式
+    # 场景2: 自由组合, 如果 metric_list 为空 => 同样用默认“临床前期近视...”做演示
+    # 场景3: 自由组合, 如果 metric_list 恰好只有1个 => 动态获取 distinct 值并统计
+    #  (多metric场景需要更复杂的三层表头, 此处暂不实现)
+    dynamic_metrics = []  # 存放 (distinctValue, aggregator) 用于后续构造列
+
+    use_dynamic_metric = False
+    single_metric_field = None
+    if not use_fixed_template:
+        if len(metric_list) == 1:
+            single_metric_field = metric_list[0]
+            use_dynamic_metric = True
+        elif len(metric_list) > 1:
+            current_app.logger.warning(
+                "[analysis_report] Multiple metrics not fully implemented, using default columns")
+
+    # 场景: use_dynamic_metric = True => 构造 pivot
+    if use_dynamic_metric and single_metric_field:
+        # 先获取 distinct 值
+        # 不能直接records，因为records是group_by后的结果
+        # 需要先查询 StudentExtension 中 distinct single_metric_field
+        DistinctModelCol = None
+        if hasattr(StudentExtension, single_metric_field):
+            DistinctModelCol = getattr(StudentExtension, single_metric_field)
+        elif hasattr(Student, single_metric_field):
+            DistinctModelCol = getattr(Student, single_metric_field)
+
+        distinct_vals = [r[0] for r in db.session.query(
+            DistinctModelCol).distinct() if r[0] is not None]
+        distinct_vals.sort()  # 让列有序
+
+        # 构造 case表达式 aggregator
+        # aggregator_list => sum( case( col==val, 1, 0 ) )
+        aggregator_list = []
+        for val in distinct_vals:
+            aggregator_list.append((
+                val,
+                func.sum(case((DistinctModelCol == val, 1), else_=0)
+                         ).label(f"metric_{val}")
+            ))
+
+        # 把 aggregator_list 拼到 query
+        # grouping_expr 已经 group_by => aggregator
+        # 先保留 group_by expr
+        columns = [grouping_expr.label(
+            "row_name"), func.count().label("total_count")]
+        for val, agg_col in aggregator_list:
+            columns.append(agg_col)
+        # 重新生成 query
+        dynamic_query = query.with_entities(*columns)
+        records = dynamic_query.all()
+        total = len(records)
+        start = (page - 1) * per_page
+        end = start + per_page
+        paginated_records = records[start:end]
+
+        # 生成表头 (2层)
+        # 第一行: 分组字段 + distinct vals (colspan=2 each) + 统计总数
+        # 第二行: 数量, 占比 for each distinct val
+        group_title = free_group_field if free_group_field else "分组"
+        first_row = []
+        first_row.append({"text": group_title, "rowspan": 2})
+        for val in distinct_vals:
+            first_row.append({"text": str(val), "colspan": 2})
+        first_row.append({"text": "统计总数", "rowspan": 2})
+
+        second_row = []
+        for _ in distinct_vals:
+            second_row.append({"text": "数量"})
+            second_row.append({"text": "占比"})
+        header = [first_row, second_row]
+
+        # 构造数据行
+        data_rows = []
+        for rec in paginated_records:
+            row_name = rec[0]
+            total_count = rec[1] or 0
+            # rec[2], rec[3], ... => aggregator for distinct vals
+            row_dict = {
+                "row_name": row_name,
+                "total_count": total_count
+            }
+            idx_base = 2  # aggregator起始index
+            # 先存 aggregator 数值
+            aggregator_values = rec[idx_base:]  # tuple
+            # 先不填 => 由distinct_vals index
+            # 先放 aggregator to row_dict
+            # 例如 "metric_一年级": aggregator_values[i], ...
+            # 但是前端渲染需要 { "xxx_count":, "xxx_ratio": } => 需打平
+            # 这里简单存 row_dict[f"{val}_count"], row_dict[f"{val}_ratio"]
+            for i, val in enumerate(distinct_vals):
+                col_value = aggregator_values[i] or 0
+                ratio = 0
+                if total_count > 0:
+                    ratio = round(col_value / total_count * 100, 2)
+                row_dict[f"{val}_count"] = col_value
+                row_dict[f"{val}_ratio"] = ratio
+
+            data_rows.append(row_dict)
+
+        # 合计行
+        sum_total = sum(r["total_count"] for r in data_rows)
+        sum_row = {
+            "row_name": "合计",
+            "total_count": sum_total
+        }
+        for val in distinct_vals:
+            col_sum = sum(r[f"{val}_count"] for r in data_rows)
+            ratio = 0
+            if sum_total > 0:
+                ratio = round(col_sum / sum_total * 100, 2)
+            sum_row[f"{val}_count"] = col_sum
+            sum_row[f"{val}_ratio"] = ratio
+        data_rows.append(sum_row)
+
+        return jsonify({
+            "tableName": custom_name if custom_name else f"{stat_time} 学生视力功能统计表",
+            "header": header,
+            "rows": data_rows,
+            "total": len(data_rows)
+        })
+
+    # ===== 否则走原有逻辑 (模板 or 默认) =====
+
+    # 6. 统计指标计算 (示例: 临床前期近视, 轻度近视, 中度近视, 视力不良)
     pre_clinic_expr = func.sum(
         cast((StudentExtension.vision_level == "临床前期近视"), Integer))
     mild_expr = func.sum(
@@ -292,8 +346,7 @@ def analysis_report():
     end = start + per_page
     paginated_records = records[start:end]
 
-    # ========== 7. 构造表头 ==========
-    # 当使用固定模板时，表头第一列根据模板决定；否则取自由组合中第一个分组字段的标签
+    # 7. 构造表头 (2层表头示例)
     if use_fixed_template:
         if template == "template1":
             group_title = "年龄段"
@@ -301,42 +354,55 @@ def analysis_report():
             group_title = "性别"
         else:
             group_title = "分组"
+
+        flat_indicator_titles = ["临床前期近视", "轻度近视", "中度近视", "视力不良"]
+        first_row = []
+        first_row.append({"text": group_title, "rowspan": 2})
+        for title in flat_indicator_titles:
+            first_row.append({"text": title, "colspan": 2})
+        first_row.append({"text": "统计总数", "rowspan": 2})
+        second_row = []
+        for _ in flat_indicator_titles:
+            second_row.append({"text": "数量"})
+            second_row.append({"text": "占比"})
+        header = [first_row, second_row]
     else:
-        if free_group_field:
-            # 根据自由组合中记录的分组字段，设置表头显示
-            if free_group_field == "age":
-                group_title = "年龄"
-            elif free_group_field == "gender":
-                group_title = "性别"
-            else:
-                group_title = free_group_field
+        # 无模板, 但没有metric 或 multiple metrics => 用默认
+        if free_group_field == "gender":
+            group_title = "性别"
+        elif free_group_field == "age":
+            group_title = "年龄"
         else:
-            group_title = "分组"
+            group_title = free_group_field if free_group_field else "分组"
+        flat_indicator_titles = ["临床前期近视", "轻度近视", "中度近视", "视力不良"]
+        first_row = []
+        first_row.append({"text": group_title, "rowspan": 2})
+        for title in flat_indicator_titles:
+            first_row.append({"text": title, "colspan": 2})
+        first_row.append({"text": "统计总数", "rowspan": 2})
+        second_row = []
+        for _ in flat_indicator_titles:
+            second_row.append({"text": "数量"})
+            second_row.append({"text": "占比"})
+        header = [first_row, second_row]
 
-    header = []
-    header.append(group_title)
-    indicator_titles = ["临床前期近视", "轻度近视", "中度近视", "视力不良"]
-    for t in indicator_titles:
-        header.append(f"{t}(人数)")
-        header.append(f"{t}(占比)")
-    header.append("统计人数")
-
-    # ========== 8. 构造数据行, 计算占比 ==========
-    rows = []
+    # 8. 构造数据行及计算占比
+    data_rows = []
     for rec in paginated_records:
-        total_count = rec.total_count if rec.total_count else 0
+        total_count = rec.total_count or 0
         pre_clinic_ratio = 0
         mild_ratio = 0
         moderate_ratio = 0
         bad_vision_ratio = 0
         if total_count > 0:
             pre_clinic_ratio = round(
-                (rec.pre_clinic_count / total_count) * 100, 2)
-            mild_ratio = round((rec.mild_count / total_count) * 100, 2)
-            moderate_ratio = round((rec.moderate_count / total_count) * 100, 2)
+                rec.pre_clinic_count / total_count * 100, 2)
+            mild_ratio = round(rec.mild_count / total_count * 100, 2)
+            moderate_ratio = round(rec.moderate_count / total_count * 100, 2)
             bad_vision_ratio = round(
-                (rec.bad_vision_count / total_count) * 100, 2)
-        row = {
+                (rec.bad_vision_count) / total_count * 100, 2)
+
+        row_data = {
             "row_name": rec.row_name,
             "pre_clinic_count": rec.pre_clinic_count,
             "pre_clinic_ratio": pre_clinic_ratio,
@@ -348,41 +414,73 @@ def analysis_report():
             "bad_vision_ratio": bad_vision_ratio,
             "total_count": total_count
         }
-        rows.append(row)
+        data_rows.append(row_data)
 
-    # ========== 9. 构造返回结果 ==========
-    if not custom_name:
-        custom_name = f"{stat_time} 学生视力情况统计表"
-    result = {
-        "tableName": custom_name,
+    # 合计行
+    sum_pre = sum(r["pre_clinic_count"] for r in data_rows)
+    sum_mild = sum(r["mild_count"] for r in data_rows)
+    sum_moderate = sum(r["moderate_count"] for r in data_rows)
+    sum_bad = sum(r["bad_vision_count"] for r in data_rows)
+    sum_total = sum(r["total_count"] for r in data_rows)
+
+    sum_pre_ratio = 0
+    sum_mild_ratio = 0
+    sum_moderate_ratio = 0
+    sum_bad_ratio = 0
+    if sum_total > 0:
+        sum_pre_ratio = round(sum_pre / sum_total * 100, 2)
+        sum_mild_ratio = round(sum_mild / sum_total * 100, 2)
+        sum_moderate_ratio = round(sum_moderate / sum_total * 100, 2)
+        sum_bad_ratio = round(sum_bad / sum_total * 100, 2)
+
+    data_rows.append({
+        "row_name": "合计",
+        "pre_clinic_count": sum_pre,
+        "pre_clinic_ratio": sum_pre_ratio,
+        "mild_count": sum_mild,
+        "mild_ratio": sum_mild_ratio,
+        "moderate_count": sum_moderate,
+        "moderate_ratio": sum_moderate_ratio,
+        "bad_vision_count": sum_bad,
+        "bad_vision_ratio": sum_bad_ratio,
+        "total_count": sum_total
+    })
+
+    return jsonify({
+        "tableName": custom_name if custom_name else f"{stat_time} 学生视力功能统计表",
         "header": header,
-        "rows": rows,
-        "total": total
-    }
-    return jsonify(result)
+        "rows": data_rows,
+        "total": len(data_rows)
+    })
 
 
 @analysis_api.route("/api/analysis/chart", methods=["GET"])
 def analysis_chart():
     """
-    图表数据接口
-    根据查询条件返回适用于 Chart.js 的数据格式:
-    {
-      "labels": [...],
-      "datasets": [
-         { "label": "...", "data": [...], "backgroundColor": [...] }
-      ]
-    }
-    示例中仅返回静态数据, 实际应结合 /api/analysis/report 的逻辑进行聚合统计.
+    图表数据接口:
+      返回适用于 Chart.js 的数据格式。示例仅演示简单结构:
+      {
+        "labels": ["男", "女"],
+        "datasets": [
+          {
+            "label": "临床前期近视(人数)",
+            "data": [18, 12],
+            "backgroundColor": ["rgba(75, 192, 192, 0.5)", "rgba(153, 102, 255, 0.5)"]
+          }
+        ]
+      }
     """
-    chart_data = {
+    # 此处仅返回示例数据，可根据需要调整
+    return jsonify({
         "labels": ["男", "女"],
         "datasets": [
             {
                 "label": "临床前期近视(人数)",
-                "data": [50, 40],
-                "backgroundColor": ["rgba(75, 192, 192, 0.5)", "rgba(153, 102, 255, 0.5)"]
+                "data": [18, 12],
+                "backgroundColor": [
+                    "rgba(75, 192, 192, 0.5)",
+                    "rgba(153, 102, 255, 0.5)"
+                ]
             }
         ]
-    }
-    return jsonify(chart_data)
+    })
