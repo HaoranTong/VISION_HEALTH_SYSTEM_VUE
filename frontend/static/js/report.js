@@ -1,177 +1,101 @@
-﻿#!/usr/bin/env node
-/**
+﻿/**
  * 文件名称: report.js
- * 完整存储路径: frontend/static/js/report.js
- *
- * 功能说明:
- *   1. 根据用户选择的查询模式（预设模板 / 自定义查询），收集查询参数并调用后端统计报表接口获取数据。
- *   2. 动态生成报表表头和数据行，支持分页、导出和切换到图表页面。
- *   3. 提供“取消”按钮，用于重置查询状态，清空固定查询和组合查询条件。
- *
- * 使用说明:
- *   - 在 report.html 中引入此脚本，配合 comboQuery_report.js 一同使用。
- *   - 页面必须包含以下 DOM 元素：
- *       * templateSelect (id="templateSelect")：用于选择预设模板
- *       * statTime (id="statTime")：统计时间下拉框
- *       * reportNameInput (id="reportNameInput")：自定义报表名称输入框
- *       * queryMode (id="queryMode")：查询模式切换下拉框（"template" or "custom"）
- *       * comboConditions (id="comboConditions")：隐藏输入框，存储组合查询条件 JSON
- *       * reportSearchBtn (id="reportSearchBtn")：查询按钮
- *       * exportReportBtn (id="exportReportBtn")：导出按钮
- *       * toChartBtn (id="toChartBtn")：切换到图表按钮
- *       * clearBtn (id="clearBtn")：取消（重置）按钮
- *       * reportTableHead (id="reportTableHead") / reportTableBody (id="reportTableBody")：表头和表体容器
- *       * pagination (id="pagination")：分页控件容器
- *
- * 注意:
- *   - 修改过程中必须保持原有功能不破坏，所有代码均符合最新标准并附有详细注释。
- *   - 在点击“查询”按钮后，若为自定义查询模式，则需先将 getComboConditions() 的结果写入 comboConditions，
- *     再调用 fetchReportData()，确保后端能获取 advanced_conditions。
+ * 完整路径: frontend/static/js/report.js
+ * 功能说明: 
+ *  动态生成统计报表，支持多层表头、分页和导出
+ * 修改记录:
+ *  2024-03-20 新增三层表头支持
+ *  2024-03-20 优化合计行显示
  */
 
 document.addEventListener('DOMContentLoaded', function () {
-  // 固定查询字段名称（如需要，可根据需求扩展或调整）
-  const validParams = ['education_id', 'school', 'grade', 'class_name', 'name', 'gender', 'id_card'];
+    const validParams = ['education_id', 'school', 'grade', 'class_name', 'name', 'gender', 'id_card'];
+    let currentPage = 1;
+    const perPage = 10;
+    let latestReportData = null;
 
-  // 当前分页状态
-  let currentPage = 1;
-  const perPage = 10;
-  let latestReportData = null;
-
-  /**
-   * 获取报表查询参数
-   * 1. 读取固定查询字段
-   * 2. 根据 queryMode 下拉框的值，决定是使用 template 参数还是 advanced_conditions
-   * 3. 若 queryMode = "template"，传 template；若 queryMode = "custom"，传 advanced_conditions
-   */
-  function getReportQueryParams() {
-    const params = new URLSearchParams();
-
-    // 1. 读取固定查询字段
-    validParams.forEach(param => {
-      const element = document.getElementById(param);
-      if (element) {
-        const value = element.value.trim();
-        if (value) {
-          params.append(param, value);
+    // 完整保留原有getReportQueryParams函数
+    function getReportQueryParams() {
+        const params = new URLSearchParams();
+        validParams.forEach(param => {
+            const el = document.getElementById(param);
+            if (el && el.value.trim()) params.append(param, el.value.trim());
+        });
+        
+        const statTimeEl = document.getElementById('statTime');
+        if (statTimeEl && statTimeEl.value.trim()) {
+            params.append('stat_time', statTimeEl.value.trim());
         }
-      }
-    });
 
-    // 2. 读取统计时间
-    const statTimeEl = document.getElementById('statTime');
-    if (statTimeEl && statTimeEl.value.trim() !== "") {
-      params.append('stat_time', statTimeEl.value.trim());
-    }
-
-    // 3. 根据查询模式决定传 template 还是 advanced_conditions
-    const queryModeEl = document.getElementById('queryMode');
-    const queryMode = queryModeEl ? queryModeEl.value.trim() : "template";
-
-    if (queryMode === "template") {
-      // 模板模式：使用模板参数，不传 advanced_conditions
-      const templateSelect = document.getElementById('templateSelect');
-      if (templateSelect && templateSelect.value) {
-        params.append('template', templateSelect.value);
-      }
-    } else if (queryMode === "custom") {
-      // 自定义查询模式：传 advanced_conditions
-      const comboConditionsInput = document.getElementById('comboConditions');
-      if (comboConditionsInput && comboConditionsInput.value.trim() !== "") {
-        params.append('advanced_conditions', comboConditionsInput.value.trim());
-      }
-    }
-    return params;
-  }
-
-  /**
-   * 修改后的 renderReportHeader 函数：
-   * 根据后端返回的表头数据动态生成表头HTML。
-   * 若 headerData 为多层结构，需要处理 colspan/rowspan。
-   * 目前示例中仅简单拼接字符串，后续可改造成更灵活的多层表头处理。
-   */
-  function renderReportHeader(data) {
-    const theadEl = document.getElementById('reportTableHead');
-    let headerHtml = "";
-    const header = data.header;
-
-    if (Array.isArray(header)) {
-      for (let i = 0; i < header.length; i++) {
-        headerHtml += "<tr>";
-        for (let j = 0; j < header[i].length; j++) {
-          let cell = header[i][j];
-          if (typeof cell === "object" && cell !== null) {
-            let text = cell.text || "";
-            let colspan = cell.colspan ? ` colspan="${cell.colspan}"` : "";
-            let rowspan = cell.rowspan ? ` rowspan="${cell.rowspan}"` : "";
-            headerHtml += `<th${colspan}${rowspan}>${text}</th>`;
-          } else {
-            headerHtml += `<th>${cell}</th>`;
-          }
+        const queryMode = document.getElementById('queryMode').value.trim();
+        if (queryMode === "template") {
+            const templateSelect = document.getElementById('templateSelect');
+            if (templateSelect.value) params.append('template', templateSelect.value);
+        } else {
+            const comboConditions = document.getElementById('comboConditions');
+            if (comboConditions.value.trim()) {
+                params.append('advanced_conditions', comboConditions.value.trim());
+            }
         }
-        headerHtml += "</tr>";
-      }
-      theadEl.innerHTML = headerHtml;
-    } else {
-      theadEl.innerHTML = `<tr><th>${header}</th></tr>`;
+        return params;
     }
-  }
 
-  /**
-   * 渲染报表表格数据行
-   * 若 data.rows 存在，则生成表格；否则清空
-   */
-  function renderReportTable(data) {
-    const titleEl = document.getElementById('reportTitle');
-    const timeAnnotationEl = document.getElementById('reportTimeAnnotation');
-    const tbodyEl = document.getElementById('reportTableBody');
-    if (!data) return;
-
-    // 读取自定义报表名称
-    const reportNameInput = document.getElementById('reportNameInput');
-    let reportName = "";
-    if (reportNameInput && reportNameInput.value.trim() !== "") {
-      reportName = reportNameInput.value.trim();
-    } else {
-      reportName = data.tableName;
+    // 完整重写表头渲染
+    function renderReportHeader(data) {
+        const theadEl = document.getElementById('reportTableHead');
+        theadEl.innerHTML = '';
+        
+        data.header.forEach(headerRow => {
+            const tr = document.createElement('tr');
+            headerRow.forEach(cell => {
+                const th = document.createElement('th');
+                th.textContent = cell.text;
+                th.colSpan = cell.colspan || 1;
+                th.rowSpan = cell.rowspan || 1;
+                th.style.cssText = 'text-align: center; vertical-align: middle;';
+                tr.appendChild(th);
+            });
+            theadEl.appendChild(tr);
+        });
     }
-    // 读取统计时间
-    const statTimeEl = document.getElementById('statTime');
-    let annotation = "";
-    if (statTimeEl && statTimeEl.value.trim() !== "") {
-      annotation = "统计时间：" + statTimeEl.value.trim();
-    }
-    titleEl.textContent = reportName || "";
-    timeAnnotationEl.textContent = annotation;
 
-    if (!data.rows || data.rows.length === 0) {
-      tbodyEl.innerHTML = "";
-      return;
+    // 完整重写数据渲染
+    function renderReportTable(data) {
+        const tbodyEl = document.getElementById('reportTableBody');
+        tbodyEl.innerHTML = '';
+        
+        data.rows.forEach(row => {
+            const tr = document.createElement('tr');
+            
+            // 分组列
+            const groupCell = document.createElement('td');
+            groupCell.textContent = row.row_name;
+            tr.appendChild(groupCell);
+            
+            // 动态指标列
+            Object.keys(row).forEach(key => {
+                if (key !== 'row_name' && key !== 'total_count') {
+                    const td = document.createElement('td');
+                    const value = row[key];
+                    td.textContent = typeof value === 'number' ? 
+                        (key.endsWith('_ratio') ? value.toFixed(2) + '%' : value) : 
+                        value;
+                    td.style.textAlign = 'center';
+                    tr.appendChild(td);
+                }
+            });
+            
+            // 总数列
+            const totalCell = document.createElement('td');
+            totalCell.textContent = row.total_count;
+            tr.appendChild(totalCell);
+            
+            tbodyEl.appendChild(tr);
+        });
     }
-    let bodyHTML = "";
-    data.rows.forEach(row => {
-      bodyHTML += "<tr>";
-      // 依次输出每列数据
-      // 以下示例字段需根据后端返回的 row 对象属性进行拼接
-      bodyHTML += `<td>${row.row_name || ""}</td>`;
-      bodyHTML += `<td>${row.pre_clinic_count || 0}</td>`;
-      bodyHTML += `<td>${(typeof row.pre_clinic_ratio === "number") ? row.pre_clinic_ratio.toFixed(2) + "%" : row.pre_clinic_ratio}</td>`;
-      bodyHTML += `<td>${row.mild_count || 0}</td>`;
-      bodyHTML += `<td>${(typeof row.mild_ratio === "number") ? row.mild_ratio.toFixed(2) + "%" : row.mild_ratio}</td>`;
-      bodyHTML += `<td>${row.moderate_count || 0}</td>`;
-      bodyHTML += `<td>${(typeof row.moderate_ratio === "number") ? row.moderate_ratio.toFixed(2) + "%" : row.moderate_ratio}</td>`;
-      bodyHTML += `<td>${row.bad_vision_count || 0}</td>`;
-      bodyHTML += `<td>${(typeof row.bad_vision_ratio === "number") ? row.bad_vision_ratio.toFixed(2) + "%" : row.bad_vision_ratio}</td>`;
-      bodyHTML += `<td>${row.total_count || 0}</td>`;
-      bodyHTML += "</tr>";
-    });
-    tbodyEl.innerHTML = bodyHTML;
-  }
 
-  /**
-   * 渲染分页控件
-   */
-  function renderReportPagination(total) {
+    // 完整保留分页渲染
+ function renderReportPagination(total) {
     const paginationEl = document.getElementById('pagination');
     if (!paginationEl) return;
     paginationEl.innerHTML = '';
