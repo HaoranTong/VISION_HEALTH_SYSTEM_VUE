@@ -18,6 +18,8 @@
 5. （本次新增）在 FIELD_DISPLAY_MAPPING 中增加 "grade": "年级"，保证第一列显示中文“年级”。
 """
 
+from openpyxl import Workbook
+from openpyxl.styles import Alignment
 from flask import send_file
 import pandas as pd
 from io import BytesIO
@@ -296,29 +298,81 @@ def build_multi_level_header(dynamic_metrics, group_title):
     第三行: 每个子选项下固定显示 "数量" 与 "占比".
     """
     header = []
+
     # 第一行
-    first_row = [{"text": group_title, "rowspan": 3}]
+    first_row = [{"text": group_title, "rowspan": 3}]  # 分组字段名
     for metric in dynamic_metrics:
         colspan = len(metric["selected"]) * 2
-        first_row.append({"text": metric["label"], "colspan": colspan})
-    first_row.append({"text": "统计总数", "rowspan": 3})
+        first_row.append(
+            {"text": metric["label"], "colspan": colspan})  # 统计指标字段名
+    first_row.append({"text": "统计总数", "rowspan": 3})  # 统计总数
     header.append(first_row)
 
     # 第二行
     second_row = []
     for metric in dynamic_metrics:
         for sub in metric["selected"]:
-            second_row.append({"text": sub, "colspan": 2})
+            second_row.append({"text": sub, "colspan": 2})  # 统计指标子选项
     header.append(second_row)
 
     # 第三行
     third_row = []
     for metric in dynamic_metrics:
         for _ in metric["selected"]:
-            third_row.append({"text": "数量"})
-            third_row.append({"text": "占比"})
+            third_row.append({"text": "数量"})  # 数量
+            third_row.append({"text": "占比"})  # 占比
     header.append(third_row)
+
     return header
+
+
+def export_to_excel(header, data_rows, file_name):
+    """
+    导出多层表头的 Excel 文件
+    :param header: 三层表头结构
+    :param data_rows: 数据行
+    :param file_name: 导出文件名
+    """
+    wb = Workbook()
+    ws = wb.active
+
+    # 写入表头
+    for row_idx, row in enumerate(header, start=1):
+        for col_idx, cell in enumerate(row, start=1):
+            # 设置单元格的值
+            ws.cell(row=row_idx, column=col_idx, value=cell["text"])
+            # 居中显示
+            ws.cell(row=row_idx, column=col_idx).alignment = Alignment(
+                horizontal='center', vertical='center')
+
+    # 合并单元格
+    for row_idx, row in enumerate(header, start=1):
+        for col_idx, cell in enumerate(row, start=1):
+            if "rowspan" in cell:  # 合并行
+                ws.merge_cells(
+                    start_row=row_idx,
+                    end_row=row_idx + cell["rowspan"] - 1,
+                    start_column=col_idx,
+                    end_column=col_idx
+                )
+            if "colspan" in cell:  # 合并列
+                ws.merge_cells(
+                    start_row=row_idx,
+                    end_row=row_idx,
+                    start_column=col_idx,
+                    end_column=col_idx + cell["colspan"] - 1
+                )
+
+    # 写入数据行
+    for row_idx, row in enumerate(data_rows, start=len(header) + 1):
+        for col_idx, value in enumerate(row, start=1):
+            ws.cell(row=row_idx, column=col_idx, value=value)
+
+    # 保存文件
+    output = BytesIO()
+    wb.save(output)
+    output.seek(0)
+    return output
 
 
 @analysis_api.route("/api/analysis/report", methods=["GET"])
@@ -574,26 +628,9 @@ def analysis_report():
         # 如果需要导出，生成Excel文件
         if export_flag:
             try:
-                # 复用生成报表的表头和数据行
-                excel_header = []
-                for row in header:
-                    excel_header.append([cell["text"] for cell in row])
-
-                excel_data = data_rows  # 直接使用生成报表的数据行
-
-                # 调试信息：检查表头和数据行的列数
-                print("表头列数:", len(excel_header[-1]))
-                print("数据行列数:", len(excel_data[0]) if excel_data else 0)
-
-                # 使用 pandas 生成 Excel 文件
-                df = pd.DataFrame(
-                    excel_data, columns=excel_header[-1])  # 使用最后一层表头作为列名
-                output = BytesIO()
-                with pd.ExcelWriter(output, engine='openpyxl') as writer:
-                    df.to_excel(writer, index=False, sheet_name='Report')
-
-                # 返回文件
-                output.seek(0)
+                # 导出多层表头的 Excel 文件
+                output = export_to_excel(
+                    header, data_rows, f"{final_report_name}.xlsx")
                 return send_file(
                     output,
                     as_attachment=True,

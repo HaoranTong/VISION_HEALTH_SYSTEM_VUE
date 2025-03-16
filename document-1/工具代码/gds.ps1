@@ -1,5 +1,5 @@
 ﻿# 定义根目录和输出文件路径
-$rootDir = "E:\DEV_CONTEXT\1_Projects\VISION_HEALTH_SYSTEM_VUE"
+$rootDir = "E:\DEV_CONTEXT\1_Projects\VISION_HEALTH_SYSTEM_VUE\"
 $currentDate = Get-Date -Format "yyMMdd"  # 获取当前日期的年月日
 $outputPath = "$rootDir\directory_structure_$currentDate.md"  # 在文件名末尾添加日期
 

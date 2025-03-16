@@ -1,5 +1,4 @@
-﻿#!/usr/bin/env node
-/**
+﻿/**
  * 文件名称: comboQuery_report.js
  * 完整存储路径: frontend/static/js/comboQuery_report.js
  *
@@ -12,16 +11,9 @@
  *          - "dropdown" / "multi-select": 生成复选框组，每个选项前添加复选框
  *          - "checkbox": 生成单个复选框
  *     2. 组合查询字段配置与独立模块保持一致，所有字段及其二级选项真实列出：
- *          - 包括 "data_year", "education_id", "school", "grade", "class_name", "name", "gender", "age",
- *            "vision_level", "interv_vision_level", "左眼-裸眼视力", "右眼-裸眼视力",
- *            "左眼-干预-裸眼视力", "右眼-干预-裸眼视力", "左眼裸眼视力变化", "右眼裸眼视力变化",
- *            "左眼屈光-球镜变化", "右眼屈光-球镜变化", "左眼屈光-柱镜变化", "右眼屈光-柱镜变化",
- *            "左眼屈光-轴位变化", "右眼屈光-轴位变化", "左眼视力干预效果", "右眼视力干预效果",
- *            "左眼球镜干预效果", "右眼球镜干预效果", "左眼柱镜干预效果", "右眼柱镜干预效果",
- *            "左眼轴位干预效果", "右眼轴位干预效果", "刮痧", "艾灸", "中药熏蒸", "热灸训练",
- *            "穴位贴敷", "热磁脉冲", "拔罐", "框架眼镜", "隐形眼镜", "夜戴角膜塑型镜"
+ *          - 注意：所有字段的 key 均使用后端统一识别的英文标识，显示时使用 label 显示中文名称。
  *     3. 每个查询条件行中新增角色选择下拉框（占2列），用于指定该条件的角色：
- *          - 角色选项包括："统计指标" (metric), "分组" (group), "筛选" (filter)
+ *          - 角色选项包括："metric"（统计指标）、"group"（分组）、"filter"（筛选）
  *     4. 提供 getComboConditions() 函数，遍历所有条件行，返回 JSON 数组，每个条件对象包含：
  *          { role: <角色>, field: <字段名>, operator: <运算符>, value: <查询值> }
  *     5. 提供 clearConditions() 函数，清除所有查询条件行。
@@ -33,10 +25,10 @@
  *     - “添加条件”按钮 (id="addConditionBtn") 和 “清除条件”按钮 (id="clearConditionsBtn")
  *
  * 注意:
- *   修改过程中必须保证不破坏原有功能，所有代码均符合 PEP 8 和 Pylint 标准，并附有详细注释。
+ *   修改过程中必须保证不破坏原有功能，并且所有代码均符合 PEP 8 和 Pylint 标准。
  */
 
-// 完整的组合查询字段配置对象（所有字段及其选项真实列出）
+// 组合查询字段配置对象，所有 key 均为后端统一英文标识，label 为显示的中文名称
 const comboQueryConfig = {
   "data_year": {
     label: "数据年份",
@@ -49,13 +41,13 @@ const comboQueryConfig = {
   },
   "school": {
     label: "学校",
-    type: "dropdown",
-    options: ["华兴小学", "苏宁红军小学", "师大附小清华小学"]
+    type: "multi-select",
+    options: ["华兴小学", "苏宁红军小学校", "师大附小清华小学"]
   },
   "grade": {
     label: "年级",
-    type: "dropdown",
-    options: ["一年级", "二年级", "三年级", "四年级", "五年级", "六年级", "七年级", "八年级", "九年级"]
+    type: "multi-select",
+    options: ["一年级", "二年级", "三年级", "四年级", "5年级", "六年级", "七年级", "八年级", "九年级"]
   },
   "class_name": {
     label: "班级",
@@ -74,7 +66,7 @@ const comboQueryConfig = {
   },
   "gender": {
     label: "性别",
-    type: "dropdown",
+    type: "multi-select",
     options: ["男", "女"]
   },
   "age": {
@@ -83,147 +75,193 @@ const comboQueryConfig = {
   },
   "vision_level": {
     label: "视力等级",
-    type: "dropdown",
+    type: "multi-select",
     options: ["临床前期近视", "轻度近视", "中度近视"]
   },
   "interv_vision_level": {
     label: "干预后视力等级",
-    type: "dropdown",
+    type: "multi-select",
     options: ["临床前期近视", "轻度近视", "中度近视"]
   },
-  "左眼-裸眼视力": {
+  "left_eye_naked": {
     label: "左眼-裸眼视力",
     type: "number_range"
   },
-  "右眼-裸眼视力": {
+  "right_eye_naked": {
     label: "右眼-裸眼视力",
     type: "number_range"
   },
-  "左眼-干预-裸眼视力": {
+  "left_eye_naked_interv": {
     label: "左眼-干预-裸眼视力",
     type: "number_range"
   },
-  "右眼-干预-裸眼视力": {
+  "right_eye_naked_interv": {
     label: "右眼-干预-裸眼视力",
     type: "number_range"
   },
-  "左眼裸眼视力变化": {
+  "left_naked_change": {
     label: "左眼裸眼视力变化",
     type: "number_range"
   },
-  "右眼裸眼视力变化": {
+  "right_naked_change": {
     label: "右眼裸眼视力变化",
     type: "number_range"
   },
-  "左眼屈光-球镜变化": {
+  "left_sphere": {
+    label: "左眼屈光-球镜",
+    type: "number_range"
+  },
+  "right_sphere": {
+    label: "右眼屈光-球镜",
+    type: "number_range"
+  },
+  "left_sphere_interv": {
+    label: "左眼屈光-干预-球镜",
+    type: "number_range"
+  },
+  "right_sphere_interv": {
+    label: "右眼屈光-干预-球镜",
+    type: "number_range"
+  },
+  "left_sphere_change": {
     label: "左眼屈光-球镜变化",
     type: "number_range"
   },
-  "右眼屈光-球镜变化": {
+  "right_sphere_change": {
     label: "右眼屈光-球镜变化",
     type: "number_range"
   },
-  "左眼屈光-柱镜变化": {
+  "left_cylinder": {
+    label: "左眼屈光-柱镜",
+    type: "number_range"
+  },
+  "right_cylinder": {
+    label: "右眼屈光-柱镜",
+    type: "number_range"
+  },
+  "left_cylinder_interv": {
+    label: "左眼屈光-干预-柱镜",
+    type: "number_range"
+  },
+  "right_cylinder_interv": {
+    label: "右眼屈光-干预-柱镜",
+    type: "number_range"
+  },
+  "left_cylinder_change": {
     label: "左眼屈光-柱镜变化",
     type: "number_range"
   },
-  "右眼屈光-柱镜变化": {
+  "right_cylinder_change": {
     label: "右眼屈光-柱镜变化",
     type: "number_range"
   },
-  "左眼屈光-轴位变化": {
+  "left_axis": {
+    label: "左眼屈光-轴位",
+    type: "number_range"
+  },
+  "right_axis": {
+    label: "右眼屈光-轴位",
+    type: "number_range"
+  },
+  "left_axis_interv": {
+    label: "左眼屈光-干预-轴位",
+    type: "number_range"
+  },
+  "right_axis_interv": {
+    label: "右眼屈光-干预-轴位",
+    type: "number_range"
+  },
+  "left_axis_change": {
     label: "左眼屈光-轴位变化",
     type: "number_range"
   },
-  "右眼屈光-轴位变化": {
+  "right_axis_change": {
     label: "右眼屈光-轴位变化",
     type: "number_range"
   },
-  "左眼视力干预效果": {
+  "left_interv_effect": {
     label: "左眼视力干预效果",
     type: "multi-select",
     options: ["上升", "维持", "下降"]
   },
-  "右眼视力干预效果": {
+  "right_interv_effect": {
     label: "右眼视力干预效果",
     type: "multi-select",
     options: ["上升", "维持", "下降"]
   },
-  "左眼球镜干预效果": {
+  "left_sphere_effect": {
     label: "左眼球镜干预效果",
     type: "multi-select",
     options: ["上升", "维持", "下降"]
   },
-  "右眼球镜干预效果": {
+  "right_sphere_effect": {
     label: "右眼球镜干预效果",
     type: "multi-select",
     options: ["上升", "维持", "下降"]
   },
-  "左眼柱镜干预效果": {
+  "left_cylinder_effect": {
     label: "左眼柱镜干预效果",
     type: "multi-select",
     options: ["上升", "维持", "下降"]
   },
-  "右眼柱镜干预效果": {
+  "right_cylinder_effect": {
     label: "右眼柱镜干预效果",
     type: "multi-select",
     options: ["上升", "维持", "下降"]
   },
-  "左眼轴位干预效果": {
+  "left_axis_effect": {
     label: "左眼轴位干预效果",
     type: "multi-select",
     options: ["上升", "维持", "下降"]
   },
-  "右眼轴位干预效果": {
+  "right_axis_effect": {
     label: "右眼轴位干预效果",
     type: "multi-select",
     options: ["上升", "维持", "下降"]
   },
-  "刮痧": {
+  "guasha": {
     label: "刮痧",
     type: "checkbox"
   },
-  "艾灸": {
+  "aigiu": {
     label: "艾灸",
     type: "checkbox"
   },
-  "中药熏蒸": {
+  "zhongyao_xunzheng": {
     label: "中药熏蒸",
     type: "checkbox"
   },
-  "热灸训练": {
+  "rejiu_training": {
     label: "热灸训练",
     type: "checkbox"
   },
-  "穴位贴敷": {
+  "xuewei_tiefu": {
     label: "穴位贴敷",
     type: "checkbox"
   },
-  "热磁脉冲": {
+  "reci_pulse": {
     label: "热磁脉冲",
     type: "checkbox"
   },
-  "拔罐": {
+  "baoguan": {
     label: "拔罐",
     type: "checkbox"
   },
-  "框架眼镜": {
+  "frame_glasses": {
     label: "框架眼镜",
     type: "checkbox"
   },
-  "隐形眼镜": {
+  "contact_lenses": {
     label: "隐形眼镜",
     type: "checkbox"
   },
-  "夜戴角膜塑型镜": {
+  "night_orthokeratology": {
     label: "夜戴角膜塑型镜",
     type: "checkbox"
   }
 };
 
-/**
- * 固定角色选项，用于每个查询条件行中的角色选择下拉框
- */
+// 固定角色选项，用于每个查询条件行中的角色选择下拉框
 const roleOptions = [
   { value: "metric", label: "统计指标" },
   { value: "group", label: "分组" },
@@ -258,11 +296,10 @@ function initComboQuery() {
  *  - 删除按钮（占2列）：删除当前条件行
  */
 function addConditionRow() {
-  // 创建查询条件行容器
   const conditionRow = document.createElement('div');
   conditionRow.className = 'condition-row row g-1 mb-1';
 
-  // 第一列：角色选择下拉框（占2列）
+  // 角色选择下拉框
   const roleDiv = document.createElement('div');
   roleDiv.className = 'col-md-2';
   const roleSelect = document.createElement('select');
@@ -279,7 +316,7 @@ function addConditionRow() {
   });
   roleDiv.appendChild(roleSelect);
 
-  // 第二列：字段下拉框（占3列）
+  // 字段下拉框
   const fieldDiv = document.createElement('div');
   fieldDiv.className = 'col-md-3';
   const fieldSelect = document.createElement('select');
@@ -296,7 +333,7 @@ function addConditionRow() {
   });
   fieldDiv.appendChild(fieldSelect);
 
-  // 第三列：运算符下拉框（占2列）
+  // 运算符下拉框
   const operatorDiv = document.createElement('div');
   operatorDiv.className = 'col-md-2';
   const operatorSelect = document.createElement('select');
@@ -318,7 +355,7 @@ function addConditionRow() {
   });
   operatorDiv.appendChild(operatorSelect);
 
-  // 第四列：值输入区域（占3列）
+  // 值输入区域
   const valueDiv = document.createElement('div');
   valueDiv.className = 'col-md-3';
   let valueInput = document.createElement('input');
@@ -327,7 +364,7 @@ function addConditionRow() {
   valueInput.placeholder = '输入查询值';
   valueDiv.appendChild(valueInput);
 
-  // 第五列：删除按钮（占2列）
+  // 删除按钮
   const deleteDiv = document.createElement('div');
   deleteDiv.className = 'col-md-2';
   const deleteBtn = document.createElement('button');
@@ -339,14 +376,14 @@ function addConditionRow() {
   });
   deleteDiv.appendChild(deleteBtn);
 
-  // 将各列依次添加到查询条件行
+  // 组合条件行拼接
   conditionRow.appendChild(roleDiv);
   conditionRow.appendChild(fieldDiv);
   conditionRow.appendChild(operatorDiv);
   conditionRow.appendChild(valueDiv);
   conditionRow.appendChild(deleteDiv);
 
-  // 根据字段选择更新值输入区域
+  // 根据所选字段更新值输入区域
   fieldSelect.addEventListener('change', function () {
     const selectedField = fieldSelect.value;
     valueDiv.innerHTML = "";
@@ -392,7 +429,6 @@ function addConditionRow() {
         break;
       case "dropdown":
       case "multi-select":
-        // 生成复选框组，每个选项前添加复选框
         const multiDiv = document.createElement('div');
         multiDiv.className = 'd-flex flex-wrap gap-1';
         config.options.forEach(opt => {
@@ -434,7 +470,6 @@ function addConditionRow() {
     }
   });
 
-  // 将查询条件行添加到条件容器中
   const container = document.getElementById('advancedQueryContainer');
   container.appendChild(conditionRow);
 }
@@ -504,11 +539,9 @@ function clearConditions() {
   container.innerHTML = "";
 }
 
-// 初始化组合查询模块
 document.addEventListener('DOMContentLoaded', function () {
   initComboQuery();
 });
 
-// 将 getComboConditions 和 clearConditions 挂载到全局对象，方便其他模块调用
 window.getComboConditions = getComboConditions;
 window.clearConditions = clearConditions;
