@@ -14,8 +14,9 @@
 1. 修正合计行累加逻辑：循环范围扩展到最后一列，并对“占比”列重新计算。
 2. 固定模板模式下显式设置 group_title，以确保第一列名头不为空。
 3. 对于自定义查询模式，如果统计指标未选择子选项则返回错误提示。
-4. （本次新增）当分组字段为多选且勾选了子选项，后端需对该字段执行 col.in_(val) 过滤，仅统计用户选择的分组值。
-5. （本次新增）在 FIELD_DISPLAY_MAPPING 中增加 "grade": "年级"，保证第一列显示中文“年级”。
+4. 当分组字段为多选且勾选了子选项，后端需对该字段执行 col.in_(val) 过滤，仅统计用户选择的分组值。
+5. 在 FIELD_DISPLAY_MAPPING 中增加 "grade": "年级"，保证第一列显示中文“年级”。
+6. 针对高级条件解析中数值字段，区分单值与区间查询；支持多个区间（每个区间以字典形式传入），以及单一数值（若 dict 中只有 min 或 max），并对区间标签进行格式化（整数显示为整数，浮点数保留小数），同时在累加过程中将 None 转换为 0。
 """
 
 from openpyxl import Workbook
@@ -300,27 +301,26 @@ def build_multi_level_header(dynamic_metrics, group_title):
     header = []
 
     # 第一行
-    first_row = [{"text": group_title, "rowspan": 3}]  # 分组字段名
+    first_row = [{"text": group_title, "rowspan": 3}]
     for metric in dynamic_metrics:
         colspan = len(metric["selected"]) * 2
-        first_row.append(
-            {"text": metric["label"], "colspan": colspan})  # 统计指标字段名
-    first_row.append({"text": "统计总数", "rowspan": 3})  # 统计总数
+        first_row.append({"text": metric["label"], "colspan": colspan})
+    first_row.append({"text": "统计总数", "rowspan": 3})
     header.append(first_row)
 
     # 第二行
     second_row = []
     for metric in dynamic_metrics:
         for sub in metric["selected"]:
-            second_row.append({"text": sub, "colspan": 2})  # 统计指标子选项
+            second_row.append({"text": sub, "colspan": 2})
     header.append(second_row)
 
     # 第三行
     third_row = []
     for metric in dynamic_metrics:
         for _ in metric["selected"]:
-            third_row.append({"text": "数量"})  # 数量
-            third_row.append({"text": "占比"})  # 占比
+            third_row.append({"text": "数量"})
+            third_row.append({"text": "占比"})
     header.append(third_row)
 
     return header
@@ -339,36 +339,25 @@ def export_to_excel(header, data_rows, file_name):
     # 写入表头
     for row_idx, row in enumerate(header, start=1):
         for col_idx, cell in enumerate(row, start=1):
-            # 设置单元格的值
             ws.cell(row=row_idx, column=col_idx, value=cell["text"])
-            # 居中显示
             ws.cell(row=row_idx, column=col_idx).alignment = Alignment(
                 horizontal='center', vertical='center')
 
     # 合并单元格
     for row_idx, row in enumerate(header, start=1):
         for col_idx, cell in enumerate(row, start=1):
-            if "rowspan" in cell:  # 合并行
-                ws.merge_cells(
-                    start_row=row_idx,
-                    end_row=row_idx + cell["rowspan"] - 1,
-                    start_column=col_idx,
-                    end_column=col_idx
-                )
-            if "colspan" in cell:  # 合并列
-                ws.merge_cells(
-                    start_row=row_idx,
-                    end_row=row_idx,
-                    start_column=col_idx,
-                    end_column=col_idx + cell["colspan"] - 1
-                )
+            if "rowspan" in cell:
+                ws.merge_cells(start_row=row_idx, end_row=row_idx + cell["rowspan"] - 1,
+                               start_column=col_idx, end_column=col_idx)
+            if "colspan" in cell:
+                ws.merge_cells(start_row=row_idx, end_row=row_idx,
+                               start_column=col_idx, end_column=col_idx + cell["colspan"] - 1)
 
     # 写入数据行
     for row_idx, row in enumerate(data_rows, start=len(header) + 1):
         for col_idx, value in enumerate(row, start=1):
             ws.cell(row=row_idx, column=col_idx, value=value)
 
-    # 保存文件
     output = BytesIO()
     wb.save(output)
     output.seek(0)
@@ -395,13 +384,11 @@ def analysis_report():
             per_page = 10
 
         current_app.logger.debug(
-            f"请求参数 - query_mode: '{query_mode}', template: '{template}', advanced: '{advanced_str}'"
-        )
+            f"请求参数 - query_mode: '{query_mode}', template: '{template}', advanced: '{advanced_str}'")
 
         # 构造基础查询
         query = db.session.query(StudentExtension, Student).join(
-            Student, StudentExtension.student_id == Student.id
-        )
+            Student, StudentExtension.student_id == Student.id)
         if stat_time:
             query = query.filter(StudentExtension.data_year == stat_time)
         else:
@@ -428,6 +415,9 @@ def analysis_report():
         metric_conditions = []
         filter_conditions = []
         free_group_field = None
+        # 用于存放数值字段单一条件（单值）和区间条件，分别存放在两个字典中
+        group_singles = {}
+        group_intervals = {}
 
         if not use_fixed_template:
             try:
@@ -441,13 +431,80 @@ def analysis_report():
                         continue
                     col = get_column_by_field(field)
                     if role == "group":
-                        if not free_group_field:
-                            free_group_field = field
-                        grouping_cols.append(col)
-                        # 当分组字段是多选时, 同时对勾选的子选项做过滤 # <-- 新增
-                        # 这样只统计用户选中的分组值
-                        if isinstance(val, list) and len(val) > 0:
-                            filter_conditions.append(col.in_(val))  # <-- 新增
+                        if field in METRIC_CONFIG and METRIC_CONFIG[field]["type"] == "number_range":
+                            # 针对数值字段的分组条件
+                            if isinstance(val, dict):
+                                min_val = val.get("min", "")
+                                max_val = val.get("max", "")
+                                if isinstance(min_val, str):
+                                    min_val = min_val.strip()
+                                if isinstance(max_val, str):
+                                    max_val = max_val.strip()
+                                if min_val and not max_val:
+                                    try:
+                                        num = float(min_val)
+                                        group_singles.setdefault(
+                                            field, []).append(num)
+                                    except ValueError:
+                                        return jsonify({"error": f"字段 '{field}' 数值转换错误"}), 400
+                                    continue
+                                elif max_val and not min_val:
+                                    try:
+                                        num = float(max_val)
+                                        group_singles.setdefault(
+                                            field, []).append(num)
+                                    except ValueError:
+                                        return jsonify({"error": f"字段 '{field}' 数值转换错误"}), 400
+                                    continue
+                                elif min_val and max_val:
+                                    group_intervals.setdefault(
+                                        field, []).append(val)
+                                    continue
+                                else:
+                                    return jsonify({"error": f"字段 '{field}' 必须输入具体数值或选择选项"}), 400
+                            elif isinstance(val, list) and len(val) > 0:
+                                if isinstance(val[0], dict):
+                                    for v in val:
+                                        min_val = v.get("min", "")
+                                        max_val = v.get("max", "")
+                                        if isinstance(min_val, str):
+                                            min_val = min_val.strip()
+                                        if isinstance(max_val, str):
+                                            max_val = max_val.strip()
+                                        if not min_val or not max_val:
+                                            return jsonify({"error": f"字段 '{field}' 区间条件必须同时包含最小值和最大值"}), 400
+                                        group_intervals.setdefault(
+                                            field, []).append(v)
+                                else:
+                                    try:
+                                        numeric_vals = [float(v)
+                                                        for v in val if v != ""]
+                                        if numeric_vals:
+                                            filter_conditions.append(
+                                                col.in_(numeric_vals))
+                                            if not free_group_field:
+                                                free_group_field = field
+                                        else:
+                                            return jsonify({"error": f"字段 '{field}' 必须输入具体数值或选择选项"}), 400
+                                    except ValueError:
+                                        return jsonify({"error": f"字段 '{field}' 数值转换错误"}), 400
+                                    continue
+                            else:
+                                try:
+                                    numeric_val = float(val)
+                                    filter_conditions.append(
+                                        col == numeric_val)
+                                    if not free_group_field:
+                                        free_group_field = field
+                                except ValueError:
+                                    return jsonify({"error": f"字段 '{field}' 数值转换错误"}), 400
+                                continue
+                        else:
+                            if not free_group_field:
+                                free_group_field = field
+                            grouping_cols.append(col)
+                            if isinstance(val, list) and len(val) > 0:
+                                filter_conditions.append(col.in_(val))
                     elif role == "metric":
                         if not isinstance(val, list) or len(val) == 0:
                             return jsonify({"error": f"统计指标 '{field}' 未选择任何子选项"}), 400
@@ -475,12 +532,106 @@ def analysis_report():
                             elif op == "like":
                                 filter_conditions.append(col.ilike(f"%{val}%"))
                             elif op in (">", "<", ">=", "<="):
-                                filter_conditions.append(getattr(col, op)(val))
+                                if isinstance(val, dict):
+                                    min_val = val.get("min", "")
+                                    max_val = val.get("max", "")
+                                    if isinstance(min_val, str):
+                                        min_val = min_val.strip()
+                                    if isinstance(max_val, str):
+                                        max_val = max_val.strip()
+                                    if min_val and max_val:
+                                        try:
+                                            min_val = float(min_val)
+                                            max_val = float(max_val)
+                                            filter_conditions.append(
+                                                col >= min_val)
+                                            filter_conditions.append(
+                                                col <= max_val)
+                                        except ValueError:
+                                            return jsonify({"error": f"字段 '{field}' 数值转换错误"}), 400
+                                    elif min_val or max_val:
+                                        try:
+                                            num_val = float(
+                                                min_val) if min_val else float(max_val)
+                                            filter_conditions.append(
+                                                col == num_val)
+                                        except ValueError:
+                                            return jsonify({"error": f"字段 '{field}' 数值转换错误"}), 400
+                                    else:
+                                        return jsonify({"error": f"字段 '{field}' 必须输入具体数值或选择选项"}), 400
+                                else:
+                                    try:
+                                        num_val = float(val)
+                                        filter_conditions.append(
+                                            col == num_val)
+                                    except ValueError:
+                                        return jsonify({"error": f"字段 '{field}' 数值转换错误"}), 400
             except Exception as exc:
                 current_app.logger.error(f"解析高级条件失败: {str(exc)}")
                 return jsonify({"error": "无效的查询条件"}), 400
 
-        # 处理分组条件
+            # 处理数值分组区间条件和单一条件
+            if group_intervals:
+                # 如果同时存在单一条件，则优先使用区间条件（或根据业务调整）
+                field = list(group_intervals.keys())[0]
+                col = get_column_by_field(field)
+                intervals = group_intervals[field]
+                try:
+                    intervals = sorted(intervals, key=lambda x: float(
+                        x.get("min", "").strip()))
+                except Exception as e:
+                    return jsonify({"error": f"字段 '{field}' 区间排序错误: {str(e)}"}), 400
+                cases = []
+                for interval in intervals:
+                    min_val = interval.get("min", "").strip()
+                    max_val = interval.get("max", "").strip()
+                    try:
+                        min_val_f = float(min_val)
+                        max_val_f = float(max_val)
+                    except ValueError:
+                        return jsonify({"error": f"字段 '{field}' 数值转换错误"}), 400
+                    if min_val_f.is_integer():
+                        min_label = str(int(min_val_f))
+                    else:
+                        min_label = str(min_val_f)
+                    if max_val_f.is_integer():
+                        max_label = str(int(max_val_f))
+                    else:
+                        max_label = str(max_val_f)
+                    cases.append((and_(col >= min_val_f, col <= max_val_f), literal(
+                        f"{min_label}-{max_label}")))
+                grouping_expr = case(
+                    *cases, else_=literal("其他")).label("row_name")
+                if not free_group_field:
+                    free_group_field = field
+                grouping_cols.append(grouping_expr)
+            elif field in group_singles:
+                # 处理单一数值条件
+                field = list(group_singles.keys())[0]
+                col = get_column_by_field(field)
+                singles = group_singles[field]
+                singles = sorted(singles)
+                # 添加过滤条件，限制记录只包含这些单一值
+                filter_conditions.append(col.in_(singles))
+                cases = []
+                for num in singles:
+                    if float(num).is_integer():
+                        label = str(int(num))
+                    else:
+                        label = str(num)
+                    cases.append((col == num, literal(label)))
+                grouping_expr = case(
+                    *cases, else_=literal("其他")).label("row_name")
+                if not free_group_field:
+                    free_group_field = field
+                grouping_cols.append(grouping_expr)
+            else:
+                # 对于非数值字段，已经在循环中添加到 grouping_cols
+                pass
+
+            dynamic_metrics = metric_conditions
+
+        # 构造分组表达式
         if not use_fixed_template:
             if grouping_cols:
                 grouping_expr = grouping_cols[0]
@@ -504,8 +655,8 @@ def analysis_report():
             query = query.filter(and_(*filter_conditions))
 
         # 统计指标
-        dynamic_metrics = []
         if use_fixed_template:
+            dynamic_metrics = []
             for metric in FIXED_METRICS:
                 new_metric = dict(metric)
                 new_metric["selected"] = metric.get("distinct_vals", [])
@@ -513,7 +664,6 @@ def analysis_report():
         else:
             if len(metric_conditions) == 0:
                 return jsonify({"error": "自定义查询模式下必须指定至少一个统计指标"}), 400
-            dynamic_metrics = metric_conditions
 
         # 构造查询列: 分组表达式 + total_count + 对于每个统计指标的每个子选项
         columns = [grouping_expr.label(
@@ -543,7 +693,6 @@ def analysis_report():
             row = []
             row.append(rec.row_name)  # 第一列: 分组值
             total = rec.total_count
-            # 动态指标部分: 依次添加每个子选项的数量和计算占比
             for metric in dynamic_metrics:
                 for sub in metric["selected"]:
                     count = getattr(
@@ -551,48 +700,42 @@ def analysis_report():
                     ratio = round(count / total * 100, 2) if total else 0
                     row.append(count)
                     row.append(ratio)
-            row.append(total)  # 最后一列: 统计总数
+            row.append(total)
             data_rows.append(row)
-            # 累加每一行数据 (从第1列到最后一列)
             for i in range(1, len(row)):
-                total_counts[i] = total_counts.get(i, 0) + row[i]
+                total_counts[i] = total_counts.get(
+                    i, 0) + (row[i] if row[i] is not None else 0)
 
-        # 构造合计行
         if data_rows:
             sum_row = ["合计"]
             num_cols = len(data_rows[0])
             grand_total = total_counts.get(num_cols - 1, 0)
             for i in range(1, num_cols):
-                # 最后一列直接使用累计统计总数
                 if i == num_cols - 1:
                     sum_row.append(grand_total)
                 else:
-                    # 对于中间列: 若该列为数量列, 则取累计数量;
-                    # 若为占比列, 则重新计算: 对应数量列的累计数量除以 grand_total
                     if (i - 1) % 2 == 0:
                         sum_row.append(total_counts.get(i, 0))
                     else:
                         qty = total_counts.get(i - 1, 0)
                         ratio_val = round(
-                            qty / grand_total * 100, 2) if grand_total else 0
+                            qty / grand_total * 100, 2) if grand_total != 0 else 0
                         sum_row.append(ratio_val)
             data_rows.append(sum_row)
         else:
             data_rows = []
 
-        # 表头构造
         FIELD_DISPLAY_MAPPING = {
             "gender": "性别",
             "age": "年龄",
             "school": "学校",
-            "grade": "年级"  # <-- 新增
+            "grade": "年级"
         }
         group_title = free_group_field if free_group_field else ""
         if group_title in FIELD_DISPLAY_MAPPING:
             group_title = FIELD_DISPLAY_MAPPING[group_title]
         header = build_multi_level_header(dynamic_metrics, group_title)
 
-        # 报表名称和附注
         if use_fixed_template:
             final_report_name = f"{stat_time}-学生视力统计表"
         else:
@@ -622,13 +765,10 @@ def analysis_report():
             "total": paginated.total
         }
 
-        # 检查是否导出
         export_flag = request.args.get("export", "").strip().lower() == "true"
 
-        # 如果需要导出，生成Excel文件
         if export_flag:
             try:
-                # 导出多层表头的 Excel 文件
                 output = export_to_excel(
                     header, data_rows, f"{final_report_name}.xlsx")
                 return send_file(
