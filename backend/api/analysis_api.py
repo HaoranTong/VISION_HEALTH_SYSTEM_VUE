@@ -12,11 +12,12 @@
     合计行中，“数量”列直接累加，各“占比”列按对应数量与总体统计总数计算。
 修改要点:
 1. 修正合计行累加逻辑：循环范围扩展到最后一列，并对“占比”列重新计算。
-2. 固定模板模式下显式设置 group_title，以确保第一列名头不为空。
+2. 固定模板模式下显式设置 group_title，以确保第一列表头不为空。
 3. 对于自定义查询模式，如果统计指标未选择子选项则返回错误提示。
 4. 当分组字段为多选且勾选了子选项，后端需对该字段执行 col.in_(val) 过滤，仅统计用户选择的分组值。
 5. 在 FIELD_DISPLAY_MAPPING 中增加 "grade": "年级"，保证第一列显示中文“年级”。
 6. 针对高级条件解析中数值字段，区分单值与区间查询；支持多个区间（每个区间以字典形式传入），以及单一数值（若 dict 中只有 min 或 max），并对区间标签进行格式化（整数显示为整数，浮点数保留小数），同时在累加过程中将 None 转换为 0。
+7. 扩展 METRIC_CONFIG 配置，添加 complete_fields 列表中所有字段的配置。
 """
 
 from openpyxl import Workbook
@@ -31,8 +32,16 @@ from sqlalchemy import func, and_, case, literal
 from flask import Blueprint, request, jsonify, current_app
 import datetime
 import json
+import traceback
 
 analysis_api = Blueprint("analysis_api", __name__)
+
+# 定义布尔型字段
+BOOLEAN_FIELDS = [
+    "guasha", "aigiu", "zhongyao_xunzheng", "rejiu_training", "xuewei_tiefu",
+    "reci_pulse", "baoguan", "frame_glasses", "contact_lenses", "night_orthokeratology"
+]
+
 
 # 定义允许的组合查询字段列表
 complete_fields = {
@@ -54,236 +63,53 @@ FIXED_METRICS = [{
     "distinct_vals": ["临床前期近视", "轻度近视", "中度近视"]
 }]
 
-# 自定义查询模式下可使用的统计指标配置
+# 自定义查询模式下可使用的统计指标配置，扩展 complete_fields 中所有字段
 METRIC_CONFIG = {
-    "education_id": {
-        "label": "教育ID号",
-        "type": "text"
-    },
-    "school": {
-        "label": "学校",
-        "type": "multi-select",
-        "options": ["华兴小学", "苏宁红军小学", "师大附小清华小学"]
-    },
-    "class_name": {
-        "label": "班级",
-        "type": "dropdown",
-        "options": lambda: [f"{i}班" for i in range(1, 16)]
-    },
-    "name": {
-        "label": "姓名",
-        "type": "text"
-    },
-    "gender": {
-        "label": "性别",
-        "type": "multi-select",
-        "options": ["男", "女"]
-    },
-    "birthday": {
-        "label": "出生日期",
-        "type": "text"
-    },
-    "phone": {
-        "label": "联系电话",
-        "type": "text"
-    },
-    "id_card": {
-        "label": "身份证号码",
-        "type": "text"
-    },
-    "region": {
-        "label": "区域",
-        "type": "text"
-    },
-    "contact_address": {
-        "label": "联系地址",
-        "type": "text"
-    },
-    "parent_name": {
-        "label": "家长姓名",
-        "type": "text"
-    },
-    "parent_phone": {
-        "label": "家长电话",
-        "type": "text"
-    },
-    "data_year": {
-        "label": "数据年份",
-        "type": "dropdown",
-        "options": ["2023", "2024", "2025", "2026", "2027", "2028"]
-    },
-    "grade": {
-        "label": "年级",
-        "type": "multi-select",
-        "options": ["一年级", "二年级", "三年级", "四年级", "五年级", "六年级", "七年级", "八年级", "九年级"]
-    },
-    "age": {
-        "label": "年龄",
-        "type": "number_range"
-    },
-    "height": {
-        "label": "身高",
-        "type": "number_range"
-    },
-    "weight": {
-        "label": "体重",
-        "type": "number_range"
-    },
-    "diet_preference": {
-        "label": "饮食偏好",
-        "type": "text"
-    },
-    "exercise_preference": {
-        "label": "运动偏好",
-        "type": "text"
-    },
-    "health_education": {
-        "label": "健康教育",
-        "type": "text"
-    },
-    "past_history": {
-        "label": "既往史",
-        "type": "text"
-    },
-    "family_history": {
-        "label": "家族史",
-        "type": "text"
-    },
-    "premature": {
-        "label": "是否早产",
-        "type": "dropdown",
-        "options": ["是", "否"]
-    },
-    "allergy": {
-        "label": "过敏史",
-        "type": "text"
-    },
-    "right_eye_naked": {
-        "label": "右眼-裸眼视力",
-        "type": "number_range"
-    },
-    "left_eye_naked": {
-        "label": "左眼-裸眼视力",
-        "type": "number_range"
-    },
-    "right_eye_corrected": {
-        "label": "右眼-矫正视力",
-        "type": "number_range"
-    },
-    "left_eye_corrected": {
-        "label": "左眼-矫正视力",
-        "type": "number_range"
-    },
-    "right_keratometry_K1": {
-        "label": "右眼-角膜曲率K1",
-        "type": "number_range"
-    },
-    "left_keratometry_K1": {
-        "label": "左眼-角膜曲率K1",
-        "type": "number_range"
-    },
-    "right_keratometry_K2": {
-        "label": "右眼-角膜曲率K2",
-        "type": "number_range"
-    },
-    "left_keratometry_K2": {
-        "label": "左眼-角膜曲率K2",
-        "type": "number_range"
-    },
-    "right_axial_length": {
-        "label": "右眼-眼轴",
-        "type": "number_range"
-    },
-    "left_axial_length": {
-        "label": "左眼-眼轴",
-        "type": "number_range"
-    },
-    "right_sphere": {
-        "label": "右眼屈光-球镜",
-        "type": "number_range"
-    },
-    "left_sphere": {
-        "label": "左眼屈光-球镜",
-        "type": "number_range"
-    },
-    "right_cylinder": {
-        "label": "右眼屈光-柱镜",
-        "type": "number_range"
-    },
-    "left_cylinder": {
-        "label": "左眼屈光-柱镜",
-        "type": "number_range"
-    },
-    "right_axis": {
-        "label": "右眼屈光-轴位",
-        "type": "number_range"
-    },
-    "left_axis": {
-        "label": "左眼屈光-轴位",
-        "type": "number_range"
-    },
-    "right_dilated_sphere": {
-        "label": "右眼散瞳-球镜",
-        "type": "number_range"
-    },
-    "left_dilated_sphere": {
-        "label": "左眼散瞳-球镜",
-        "type": "number_range"
-    },
-    "right_dilated_cylinder": {
-        "label": "右眼散瞳-柱镜",
-        "type": "number_range"
-    },
-    "left_dilated_cylinder": {
-        "label": "左眼散瞳-柱镜",
-        "type": "number_range"
-    },
-    "right_dilated_axis": {
-        "label": "右眼散瞳-轴位",
-        "type": "number_range"
-    },
-    "left_dilated_axis": {
-        "label": "左眼散瞳-轴位",
-        "type": "number_range"
-    },
-    "vision_level": {
-        "label": "视力等级",
-        "type": "multi-select",
-        "options": ["临床前期近视", "轻度近视", "中度近视", "假性近视", "正常"]
-    },
-    "right_anterior_depth": {
-        "label": "右眼-前房深度",
-        "type": "number_range"
-    },
-    "left_anterior_depth": {
-        "label": "左眼-前房深度",
-        "type": "number_range"
-    },
-    "other_info": {
-        "label": "其他情况",
-        "type": "text"
-    },
-    "eye_fatigue": {
-        "label": "眼疲劳状况",
-        "type": "text"
-    },
-    "frame_glasses": {
-        "label": "框架眼镜",
-        "type": "checkbox"
-    },
-    "contact_lenses": {
-        "label": "隐形眼镜",
-        "type": "checkbox"
-    },
-    "night_orthokeratology": {
-        "label": "夜戴角膜塑型镜",
-        "type": "checkbox"
-    }
+    "education_id": {"label": "教育ID号", "type": "text"},
+    "school": {"label": "学校", "type": "multi-select", "options": ["华兴小学", "苏宁红军小学", "师大附小清华小学"]},
+    "class_name": {"label": "班级", "type": "dropdown", "options": [f"{i}班" for i in range(1, 16)]},
+    "name": {"label": "姓名", "type": "text"},
+    "gender": {"label": "性别", "type": "multi-select", "options": ["男", "女"]},
+    "age": {"label": "年龄", "type": "number_range"},
+    "data_year": {"label": "数据年份", "type": "dropdown", "options": ["2023", "2024", "2025", "2026", "2027", "2028"]},
+    "grade": {"label": "年级", "type": "multi-select", "options": ["一年级", "二年级", "三年级", "四年级", "五年级", "六年级", "七年级", "八年级", "九年级"]},
+    "vision_level": {"label": "视力等级", "type": "multi-select", "options": ["临床前期近视", "轻度近视", "中度近视", "假性近视", "正常"]},
+    "interv_vision_level": {"label": "干预后视力等级", "type": "multi-select", "options": ["临床前期近视", "轻度近视", "中度近视", "假性近视", "正常"]},
+    "left_eye_naked": {"label": "左眼-裸眼视力", "type": "number_range"},
+    "right_eye_naked": {"label": "右眼-裸眼视力", "type": "number_range"},
+    "left_eye_naked_interv": {"label": "左眼-干预-裸眼视力", "type": "number_range"},
+    "right_eye_naked_interv": {"label": "右眼-干预-裸眼视力", "type": "number_range"},
+    "left_naked_change": {"label": "左眼裸眼视力变化", "type": "number_range"},
+    "right_naked_change": {"label": "右眼裸眼视力变化", "type": "number_range"},
+    "left_eye_corrected": {"label": "左眼-矫正视力", "type": "number_range"},
+    "right_eye_corrected": {"label": "右眼-矫正视力", "type": "number_range"},
+    "left_keratometry_K1": {"label": "左眼-角膜曲率K1", "type": "number_range"},
+    "right_keratometry_K1": {"label": "右眼-角膜曲率K1", "type": "number_range"},
+    "left_keratometry_K2": {"label": "左眼-角膜曲率K2", "type": "number_range"},
+    "right_keratometry_K2": {"label": "右眼-角膜曲率K2", "type": "number_range"},
+    "left_axial_length": {"label": "左眼-眼轴", "type": "number_range"},
+    "right_axial_length": {"label": "右眼-眼轴", "type": "number_range"},
+    "left_sphere_change": {"label": "左眼屈光-球镜变化", "type": "number_range"},
+    "right_sphere_change": {"label": "右眼屈光-球镜变化", "type": "number_range"},
+    "left_cylinder_change": {"label": "左眼屈光-柱镜变化", "type": "number_range"},
+    "right_cylinder_change": {"label": "右眼屈光-柱镜变化", "type": "number_range"},
+    "left_axis_change": {"label": "左眼屈光-轴位变化", "type": "number_range"},
+    "right_axis_change": {"label": "右眼屈光-轴位变化", "type": "number_range"},
+    "left_interv_effect": {"label": "左眼视力干预效果", "type": "multi-select", "options": ["上升", "维持", "下降"]},
+    "right_interv_effect": {"label": "右眼视力干预效果", "type": "multi-select", "options": ["上升", "维持", "下降"]},
+    "left_sphere_effect": {"label": "左眼球镜干预效果", "type": "multi-select", "options": ["上升", "维持", "下降"]},
+    "right_sphere_effect": {"label": "右眼球镜干预效果", "type": "multi-select", "options": ["上升", "维持", "下降"]},
+    "left_cylinder_effect": {"label": "左眼柱镜干预效果", "type": "multi-select", "options": ["上升", "维持", "下降"]},
+    "right_cylinder_effect": {"label": "右眼柱镜干预效果", "type": "multi-select", "options": ["上升", "维持", "下降"]},
+    "left_axis_effect": {"label": "左眼轴位干预效果", "type": "multi-select", "options": ["上升", "维持", "下降"]},
+    "right_axis_effect": {"label": "右眼轴位干预效果", "type": "multi-select", "options": ["上升", "维持", "下降"]}
 }
 
 
 def get_column_by_field(field):
-    """根据字段名获取对应的数据库列对象"""
+    """
+    根据字段名获取对应的数据库列对象
+    """
     if hasattr(StudentExtension, field):
         return getattr(StudentExtension, field)
     if hasattr(Student, field):
@@ -293,13 +119,12 @@ def get_column_by_field(field):
 
 def build_multi_level_header(dynamic_metrics, group_title):
     """
-    构造三层表头:
-    第一行: 第一列为分组字段名 (跨3行), 中间各统计指标字段名称 (每个占其选项数量*2列), 最后一列为统计总数 (跨3行).
-    第二行: 每个统计指标字段下显示用户选中的子选项 (每个占2列).
-    第三行: 每个子选项下固定显示 "数量" 与 "占比".
+    构造多层表头：
+    第一行: 第一列为分组字段名 (跨3行), 中间各统计指标字段名称 (每个占其选项数量*2列), 最后一列为统计总数 (跨3行)。
+    第二行: 每个统计指标字段下显示用户选中的二级选项 (每个占2列)。
+    第三行: 每个二级选项下固定显示 "数量" 与 "占比"。
     """
     header = []
-
     # 第一行
     first_row = [{"text": group_title, "rowspan": 3}]
     for metric in dynamic_metrics:
@@ -307,14 +132,12 @@ def build_multi_level_header(dynamic_metrics, group_title):
         first_row.append({"text": metric["label"], "colspan": colspan})
     first_row.append({"text": "统计总数", "rowspan": 3})
     header.append(first_row)
-
     # 第二行
     second_row = []
     for metric in dynamic_metrics:
         for sub in metric["selected"]:
             second_row.append({"text": sub, "colspan": 2})
     header.append(second_row)
-
     # 第三行
     third_row = []
     for metric in dynamic_metrics:
@@ -322,42 +145,45 @@ def build_multi_level_header(dynamic_metrics, group_title):
             third_row.append({"text": "数量"})
             third_row.append({"text": "占比"})
     header.append(third_row)
-
     return header
 
 
 def export_to_excel(header, data_rows, file_name):
     """
-    导出多层表头的 Excel 文件
-    :param header: 三层表头结构
-    :param data_rows: 数据行
-    :param file_name: 导出文件名
+    导出多层表头的 Excel 文件。
+    :param header: 多层表头数据结构。
+    :param data_rows: 数据行。
+    :param file_name: 导出文件名称。
     """
     wb = Workbook()
     ws = wb.active
-
     # 写入表头
     for row_idx, row in enumerate(header, start=1):
         for col_idx, cell in enumerate(row, start=1):
             ws.cell(row=row_idx, column=col_idx, value=cell["text"])
             ws.cell(row=row_idx, column=col_idx).alignment = Alignment(
                 horizontal='center', vertical='center')
-
     # 合并单元格
     for row_idx, row in enumerate(header, start=1):
         for col_idx, cell in enumerate(row, start=1):
             if "rowspan" in cell:
-                ws.merge_cells(start_row=row_idx, end_row=row_idx + cell["rowspan"] - 1,
-                               start_column=col_idx, end_column=col_idx)
+                ws.merge_cells(
+                    start_row=row_idx,
+                    end_row=row_idx + cell["rowspan"] - 1,
+                    start_column=col_idx,
+                    end_column=col_idx
+                )
             if "colspan" in cell:
-                ws.merge_cells(start_row=row_idx, end_row=row_idx,
-                               start_column=col_idx, end_column=col_idx + cell["colspan"] - 1)
-
+                ws.merge_cells(
+                    start_row=row_idx,
+                    end_row=row_idx,
+                    start_column=col_idx,
+                    end_column=col_idx + cell["colspan"] - 1
+                )
     # 写入数据行
     for row_idx, row in enumerate(data_rows, start=len(header) + 1):
         for col_idx, value in enumerate(row, start=1):
             ws.cell(row=row_idx, column=col_idx, value=value)
-
     output = BytesIO()
     wb.save(output)
     output.seek(0)
@@ -373,7 +199,6 @@ def analysis_report():
         query_mode = request.args.get("query_mode", "template").strip()
         stat_time = request.args.get("stat_time", "").strip()
         report_name = request.args.get("report_name", "").strip()
-
         try:
             page = int(request.args.get("page", 1))
         except ValueError:
@@ -382,21 +207,20 @@ def analysis_report():
             per_page = int(request.args.get("per_page", 10))
         except ValueError:
             per_page = 10
-
         current_app.logger.debug(
-            f"请求参数 - query_mode: '{query_mode}', template: '{template}', advanced: '{advanced_str}'")
-
+            f"请求参数 - query_mode: '{query_mode}', template: '{template}', advanced: '{advanced_str}'"
+        )
         # 构造基础查询
         query = db.session.query(StudentExtension, Student).join(
-            Student, StudentExtension.student_id == Student.id)
+            Student, StudentExtension.student_id == Student.id
+        )
         if stat_time:
             query = query.filter(StudentExtension.data_year == stat_time)
         else:
             current_year = str(datetime.datetime.now().year)
             query = query.filter(StudentExtension.data_year == current_year)
             stat_time = current_year
-
-        # 判断分支: 固定模板 or 自定义查询
+        # 参数验证
         use_fixed_template = False
         if query_mode == "template":
             if template not in ["template1", "template2"]:
@@ -407,6 +231,48 @@ def analysis_report():
         elif query_mode == "custom":
             if not advanced_str:
                 return jsonify({"error": "自定义查询模式下必须传递 advanced_conditions 参数"}), 400
+            try:
+                adv_conds = json.loads(advanced_str)
+            except Exception as e:
+                return jsonify({"error": "advanced_conditions 参数格式错误"}), 400
+            let_has_group = False
+            let_has_metric = False
+            for cond in adv_conds:
+                field = cond.get("field", "").strip()
+                operator = cond.get("operator", "").strip()
+                value = cond.get("value")
+                if not field or not operator or value in [None, "", []]:
+                    return jsonify({"error": "请选择二级选项或填写数值或文本"}), 400
+
+                 # 打印日志，查看接收到的字段、运算符和值
+                print(
+                    f"Received field: {field}, operator: {operator}, value: {value}")
+
+                # === 插入开始 ===
+                # 处理布尔型字段
+                if field in BOOLEAN_FIELDS:
+                    # 如果值是数组，转换所有元素
+                    if isinstance(value, list):
+                        value = [True if v == "是" else False if v ==
+                                 "否" else v for v in value]
+                    # 如果值是单一的字符串，转换为布尔值
+                    else:
+                        value = True if value == "是" else False if value == "否" else value
+
+                    if operator == "like":  # 如果运算符是 'like'，我们强制替换成 '='
+                        operator = "="
+                    # 限制布尔字段只能用 '=' 或 '!='
+                    if operator not in ["=", "!="]:
+                        return jsonify({"error": f"不支持的运算符 '{operator}' 对于布尔型字段 '{field}'"}), 400
+                # === 插入结束 ===
+
+                role = cond.get("role", "").strip().lower()
+                if role == "group":
+                    let_has_group = True
+                if role == "metric":
+                    let_has_metric = True
+            if not let_has_group or not let_has_metric:
+                return jsonify({"error": "请选择统计指标或分组"}), 400
         else:
             return jsonify({"error": "无效的查询模式"}), 400
 
@@ -415,7 +281,7 @@ def analysis_report():
         metric_conditions = []
         filter_conditions = []
         free_group_field = None
-        # 用于存放数值字段单一条件（单值）和区间条件，分别存放在两个字典中
+        # 用于存放数值字段单一条件和区间条件，分别存放在两个字典中
         group_singles = {}
         group_intervals = {}
 
@@ -431,15 +297,10 @@ def analysis_report():
                         continue
                     col = get_column_by_field(field)
                     if role == "group":
-                        if field in METRIC_CONFIG and METRIC_CONFIG[field]["type"] == "number_range":
-                            # 针对数值字段的分组条件
+                        if METRIC_CONFIG.get(field, {}).get("type") == "number_range":
                             if isinstance(val, dict):
-                                min_val = val.get("min", "")
-                                max_val = val.get("max", "")
-                                if isinstance(min_val, str):
-                                    min_val = min_val.strip()
-                                if isinstance(max_val, str):
-                                    max_val = max_val.strip()
+                                min_val = val.get("min", "").strip()
+                                max_val = val.get("max", "").strip()
                                 if min_val and not max_val:
                                     try:
                                         num = float(min_val)
@@ -465,12 +326,8 @@ def analysis_report():
                             elif isinstance(val, list) and len(val) > 0:
                                 if isinstance(val[0], dict):
                                     for v in val:
-                                        min_val = v.get("min", "")
-                                        max_val = v.get("max", "")
-                                        if isinstance(min_val, str):
-                                            min_val = min_val.strip()
-                                        if isinstance(max_val, str):
-                                            max_val = max_val.strip()
+                                        min_val = v.get("min", "").strip()
+                                        max_val = v.get("max", "").strip()
                                         if not min_val or not max_val:
                                             return jsonify({"error": f"字段 '{field}' 区间条件必须同时包含最小值和最大值"}), 400
                                         group_intervals.setdefault(
@@ -508,11 +365,19 @@ def analysis_report():
                     elif role == "metric":
                         if not isinstance(val, list) or len(val) == 0:
                             return jsonify({"error": f"统计指标 '{field}' 未选择任何子选项"}), 400
-                        metric_conditions.append({
-                            "field": field,
-                            "selected": val,
-                            "label": METRIC_CONFIG.get(field, {}).get("label", field)
-                        })
+                        # 合并同一字段多次选择：如果已经存在，则追加新选项
+                        found = False
+                        for m in metric_conditions:
+                            if m["field"] == field:
+                                m["selected"].extend(val)
+                                found = True
+                                break
+                        if not found:
+                            metric_conditions.append({
+                                "field": field,
+                                "selected": val,
+                                "label": METRIC_CONFIG.get(field, {}).get("label", field)
+                            })
                     elif role == "filter":
                         if isinstance(val, dict) and "min" in val and "max" in val:
                             try:
@@ -533,12 +398,8 @@ def analysis_report():
                                 filter_conditions.append(col.ilike(f"%{val}%"))
                             elif op in (">", "<", ">=", "<="):
                                 if isinstance(val, dict):
-                                    min_val = val.get("min", "")
-                                    max_val = val.get("max", "")
-                                    if isinstance(min_val, str):
-                                        min_val = min_val.strip()
-                                    if isinstance(max_val, str):
-                                        max_val = max_val.strip()
+                                    min_val = val.get("min", "").strip()
+                                    max_val = val.get("max", "").strip()
                                     if min_val and max_val:
                                         try:
                                             min_val = float(min_val)
@@ -570,9 +431,11 @@ def analysis_report():
                 current_app.logger.error(f"解析高级条件失败: {str(exc)}")
                 return jsonify({"error": "无效的查询条件"}), 400
 
-            # 处理数值分组区间条件和单一条件
+            if not metric_conditions or not (grouping_cols or group_intervals or group_singles):
+                return jsonify({"error": "请选择统计指标或分组"}), 400
+
+            # 处理数值分组条件
             if group_intervals:
-                # 如果同时存在单一条件，则优先使用区间条件（或根据业务调整）
                 field = list(group_intervals.keys())[0]
                 col = get_column_by_field(field)
                 intervals = group_intervals[field]
@@ -598,20 +461,17 @@ def analysis_report():
                         max_label = str(int(max_val_f))
                     else:
                         max_label = str(max_val_f)
-                    cases.append((and_(col >= min_val_f, col <= max_val_f), literal(
-                        f"{min_label}-{max_label}")))
+                    cases.append((and_(col >= min_val_f, col <= max_val_f),
+                                  literal(f"{min_label}-{max_label}")))
                 grouping_expr = case(
                     *cases, else_=literal("其他")).label("row_name")
                 if not free_group_field:
                     free_group_field = field
                 grouping_cols.append(grouping_expr)
-            elif field in group_singles:
-                # 处理单一数值条件
+            elif group_singles:
                 field = list(group_singles.keys())[0]
                 col = get_column_by_field(field)
-                singles = group_singles[field]
-                singles = sorted(singles)
-                # 添加过滤条件，限制记录只包含这些单一值
+                singles = sorted(group_singles[field])
                 filter_conditions.append(col.in_(singles))
                 cases = []
                 for num in singles:
@@ -626,11 +486,10 @@ def analysis_report():
                     free_group_field = field
                 grouping_cols.append(grouping_expr)
             else:
-                # 对于非数值字段，已经在循环中添加到 grouping_cols
+                # 非数值字段的分组条件，已在循环中添加
                 pass
 
             dynamic_metrics = metric_conditions
-
         # 构造分组表达式
         if not use_fixed_template:
             if grouping_cols:
@@ -654,7 +513,7 @@ def analysis_report():
         if filter_conditions:
             query = query.filter(and_(*filter_conditions))
 
-        # 统计指标
+        # 统计指标处理
         if use_fixed_template:
             dynamic_metrics = []
             for metric in FIXED_METRICS:
@@ -665,7 +524,7 @@ def analysis_report():
             if len(metric_conditions) == 0:
                 return jsonify({"error": "自定义查询模式下必须指定至少一个统计指标"}), 400
 
-        # 构造查询列: 分组表达式 + total_count + 对于每个统计指标的每个子选项
+        # 构造查询列：分组表达式、总记录数，以及每个统计指标的各子选项
         columns = [grouping_expr.label(
             "row_name"), func.count().label("total_count")]
         for metric in dynamic_metrics:
@@ -686,12 +545,12 @@ def analysis_report():
             current_app.logger.error(f"数据库查询错误: {str(exc)}")
             return jsonify({"error": "数据查询失败"}), 500
 
-        # 构造数据行
+        # 构造数据行和合计行
         data_rows = []
         total_counts = {}
         for rec in records:
             row = []
-            row.append(rec.row_name)  # 第一列: 分组值
+            row.append(rec.row_name)
             total = rec.total_count
             for metric in dynamic_metrics:
                 for sub in metric["selected"]:
@@ -705,7 +564,6 @@ def analysis_report():
             for i in range(1, len(row)):
                 total_counts[i] = total_counts.get(
                     i, 0) + (row[i] if row[i] is not None else 0)
-
         if data_rows:
             sum_row = ["合计"]
             num_cols = len(data_rows[0])
@@ -756,7 +614,6 @@ def analysis_report():
             except Exception as exc:
                 current_app.logger.error(f"解析筛选附注失败: {str(exc)}")
         annotation = " ".join(filters_annotation)
-
         response = {
             "tableName": final_report_name,
             "filterAnnotation": annotation,
@@ -764,9 +621,7 @@ def analysis_report():
             "rows": data_rows,
             "total": paginated.total
         }
-
         export_flag = request.args.get("export", "").strip().lower() == "true"
-
         if export_flag:
             try:
                 output = export_to_excel(
@@ -780,7 +635,6 @@ def analysis_report():
             except Exception as exc:
                 current_app.logger.error(f"导出报表失败: {str(exc)}")
                 return jsonify({"error": "导出报表失败"}), 500
-
         return jsonify(response)
     except Exception as exc:
         current_app.logger.error(f"统计报表接口异常: {str(exc)}")
