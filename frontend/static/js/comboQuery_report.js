@@ -14,7 +14,7 @@
  *          - 注意：所有字段的 key 均使用后端统一识别的英文标识，显示时使用 label 显示中文名称。
  *     3. 每个查询条件行中新增角色选择下拉框（占2列），用于指定该条件的角色：
  *          - 角色选项包括："metric"（统计指标）、"group"（分组）、"filter"（筛选）
- *     4. 提供 getComboConditions() 函数，遍历所有条件行，返回 JSON 数组，每个条件对象包含：
+ *     4. 提供 getitions() 函数，遍历所有条件行，返回 JSON 数组，每个条件对象包含：
  *          { role: <角色>, field: <字段名>, operator: <运算符>, value: <查询值> }
  *     5. 提供 clearConditions() 函数，清除所有查询条件行。
  *
@@ -229,6 +229,34 @@ const comboQueryConfig = {
     type: "multi-select",
     options: ["上升", "维持", "下降"],
   },
+  intervention_methods: {
+    label: "干预方式",
+    type: "multi-select",
+    options: [
+      "刮痧",
+      "艾灸",
+      "中药熏蒸",
+      "热灸训练",
+      "穴位贴敷",
+      "热磁脉冲",
+      "拔罐",
+      "框架眼镜",
+      "隐形眼镜",
+      "夜戴角膜塑型镜",
+    ], // 数据库字段名
+    labels: {
+      guasha: "刮痧",
+      aigiu: "艾灸",
+      zhongyao_xunzheng: "中药熏蒸",
+      rejiu_training: "热灸训练",
+      xuewei_tiefu: "穴位贴敷",
+      reci_pulse: "热磁脉冲",
+      baoguan: "拔罐",
+      frame_glasses: "框架眼镜",
+      contact_lenses: "隐形眼镜",
+      night_orthokeratology: "夜戴角膜塑型镜",
+    },
+  },
   guasha: {
     label: "刮痧",
     type: "multi-select",
@@ -281,8 +309,7 @@ const comboQueryConfig = {
   },
 };
 
-const BOOLEAN_FIELDS = ['guasha', '刮痧'];  // 根据实际布尔字段列表修改
-
+const BOOLEAN_FIELDS = []; // 根据实际布尔字段列表修改
 
 // 固定角色选项，用于每个查询条件行中的角色选择下拉框
 const roleOptions = [
@@ -410,6 +437,15 @@ function addConditionRow() {
   fieldSelect.addEventListener("change", function () {
     const selectedField = fieldSelect.value;
     valueDiv.innerHTML = "";
+    // === 新增代码：强制干预方式分组的操作符为 "in" ===
+    if (selectedField === "intervention_methods") {
+      const operatorSelect = this.closest(".condition-row").querySelector(
+        ".condition-operator"
+      );
+      operatorSelect.value = "in";
+      operatorSelect.disabled = true; // 禁止修改操作符
+    }
+    // === 新增结束 ===
     if (!selectedField) {
       valueInput = document.createElement("input");
       valueInput.type = "text";
@@ -419,6 +455,28 @@ function addConditionRow() {
       return;
     }
     const config = comboQueryConfig[selectedField];
+    // === 插入开始：干预方式字段渲染 ===
+    if (selectedField === "intervention_methods") {
+      const multiDiv = document.createElement("div");
+      multiDiv.className = "d-flex flex-wrap gap-1";
+      config.options.forEach((opt) => {
+        const label = document.createElement("label");
+        label.className = "form-check form-check-inline";
+        const checkbox = document.createElement("input");
+        checkbox.type = "checkbox";
+        checkbox.className = "form-check-input condition-value-multi";
+        checkbox.value = config.labels[opt] || opt; // 显示中文标签
+        const span = document.createElement("span");
+        span.className = "form-check-label";
+        span.textContent = config.labels[opt] || opt;
+        label.appendChild(checkbox);
+        label.appendChild(span);
+        multiDiv.appendChild(label);
+      });
+      valueDiv.appendChild(multiDiv);
+      return;
+    }
+    // === 插入结束 ===
     if (!config) {
       valueInput = document.createElement("input");
       valueInput.type = "text";
@@ -517,16 +575,36 @@ function getComboConditions() {
     let value;
     const role = roleEl ? roleEl.value.trim() : "";
     const field = fieldEl ? fieldEl.value.trim() : "";
-    const operator = operatorEl ? operatorEl.value.trim() : "";
+    let operator = operatorEl ? operatorEl.value.trim() : "";
+    // === 新增代码：强制干预方式分组的操作符为 "in" ===
+    if (field === "intervention_methods") {
+      operator = "in";
+    }
     if (!field || !operator) return;
     const config = comboQueryConfig[field];
+
+    // === 插入开始：新增空条件检查 ===
+    // 检查角色、字段、操作符、值是否有效
+    if (
+      !role ||
+      !field ||
+      !operator ||
+      (Array.isArray(value) && value.length === 0)
+    ) {
+      return; // 跳过无效行
+    }
+    // === 插入结束 ===
+    /** 
     // === 插入位置开始 ===
     if (BOOLEAN_FIELDS.includes(field)) {
       // 默认使用 `=` 运算符
-      value = row.querySelector('.condition-value') ? row.querySelector('.condition-value').value.trim() : "";
-      operator = "=";  // 设定运算符为 "="
+      value = row.querySelector(".condition-value")
+        ? row.querySelector(".condition-value").value.trim()
+        : "";
+      operator = "="; // 设定运算符为 "="
     }
     // === 插入位置结束 ===
+    */
 
     // 打印调试日志，查看传递的字段、运算符和值
     console.log(`Field: ${field}, Operator: ${operator}, Value: ${value}`);
@@ -577,6 +655,22 @@ function getComboConditions() {
       value: value,
     });
   });
+
+  // === 插入开始：干预方式字段映射 ===
+  conditions.forEach((cond) => {
+    if (cond.field === "intervention_methods") {
+      cond.value = cond.value.map((v) => {
+        const field = Object.keys(
+          comboQueryConfig.intervention_methods.labels
+        ).find(
+          (key) => comboQueryConfig.intervention_methods.labels[key] === v
+        );
+        return field || v;
+      });
+    }
+  });
+  // === 插入结束 ===
+
   return conditions;
 }
 

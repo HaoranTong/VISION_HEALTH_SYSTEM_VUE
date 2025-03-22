@@ -28,7 +28,7 @@ from io import BytesIO
 from backend.models.student_extension import StudentExtension
 from backend.models.student import Student
 from backend.infrastructure.database import db
-from sqlalchemy import func, and_, case, literal
+from sqlalchemy import func, and_, case, literal, or_  # ✅ 添加 or_
 from flask import Blueprint, request, jsonify, current_app
 import datetime
 import json
@@ -53,7 +53,8 @@ complete_fields = {
     "left_sphere_effect", "right_sphere_effect", "left_cylinder_effect", "right_cylinder_effect",
     "left_axis_effect", "right_axis_effect", "left_eye_corrected", "right_eye_corrected",
     "left_keratometry_K1", "right_keratometry_K1", "left_keratometry_K2", "right_keratometry_K2",
-    "left_axial_length", "right_axial_length"
+    "left_axial_length", "right_axial_length", "guasha", "aigiu", "zhongyao_xunzheng", "rejiu_training", "xuewei_tiefu",
+    "reci_pulse", "baoguan", "frame_glasses", "contact_lenses", "night_orthokeratology"
 }
 
 # 固定模板下的统计指标配置（仅支持 "vision_level"）
@@ -104,6 +105,21 @@ METRIC_CONFIG = {
     "left_axis_effect": {"label": "左眼轴位干预效果", "type": "multi-select", "options": ["上升", "维持", "下降"]},
     "right_axis_effect": {"label": "右眼轴位干预效果", "type": "multi-select", "options": ["上升", "维持", "下降"]}
 }
+
+# === 插入开始：定义字段名到中文标签的映射 ===
+FIELD_LABEL_MAPPING = {
+    "guasha": "刮痧",
+    "aigiu": "艾灸",
+    "zhongyao_xunzheng": "中药熏蒸",
+    "rejiu_training": "热灸训练",
+    "xuewei_tiefu": "穴位贴敷",
+    "reci_pulse": "热磁脉冲",
+    "baoguan": "拔罐",
+    "frame_glasses": "框架眼镜",
+    "contact_lenses": "隐形眼镜",
+    "night_orthokeratology": "夜戴角膜塑型镜"
+}
+# === 插入结束 ===
 
 
 def get_column_by_field(field):
@@ -247,7 +263,7 @@ def analysis_report():
                  # 打印日志，查看接收到的字段、运算符和值
                 print(
                     f"Received field: {field}, operator: {operator}, value: {value}")
-
+                '''
                 # === 插入开始 ===
                 # 处理布尔型字段
                 if field in BOOLEAN_FIELDS:
@@ -265,7 +281,7 @@ def analysis_report():
                     if operator not in ["=", "!="]:
                         return jsonify({"error": f"不支持的运算符 '{operator}' 对于布尔型字段 '{field}'"}), 400
                 # === 插入结束 ===
-
+                '''
                 role = cond.get("role", "").strip().lower()
                 if role == "group":
                     let_has_group = True
@@ -284,15 +300,77 @@ def analysis_report():
         # 用于存放数值字段单一条件和区间条件，分别存放在两个字典中
         group_singles = {}
         group_intervals = {}
-
         if not use_fixed_template:
             try:
                 adv_conds = json.loads(advanced_str)
+
+                valid_interventions = ["guasha", "aigiu", "zhongyao_xunzheng", "rejiu_training", "xuewei_tiefu",
+                                       "reci_pulse", "baoguan", "frame_glasses", "contact_lenses", "night_orthokeratology"]
+                selected_interventions = []  # ✅ 在循环前初始化
                 for cond in adv_conds:
                     role = cond.get("role", "").strip().lower()
                     field = cond.get("field", "").strip()
                     op = cond.get("operator", "").strip().lower()
-                    val = cond.get("value", None)
+                    val = cond.get("value", [])
+                    if role == "group" and field == "intervention_methods":
+                        # === 修改开始：初始化并校验 ===
+
+                        selected_interventions = val if isinstance(
+                            val, list) else []
+                        if not selected_interventions:
+                            return jsonify({"error": "干预方式必须至少选择一个选项"}), 400
+                        # === 修改结束 ===
+                        for v in val:
+                            if v not in valid_interventions:
+                                return jsonify({"error": f"无效的干预字段名: {v}"}), 400
+                    # --- 新增校验2：操作符校验 ---
+                    if field == "intervention_methods" and op != "in":
+                        return jsonify({"error": "干预方式分组的操作符必须为 'in'"}), 400
+                    # === 新增结束 ===
+
+                    # === 插入开始：处理干预方式分组逻辑 ===
+                    if role == "group" and field == "intervention_methods":
+                        # 用户选择的干预项列表（如 ["guasha", "aigiu"]）
+                        selected_interventions = val
+                    # 修正分组名称生成逻辑
+                        # === 正确代码 ===
+                        conditions = []
+                        label_names = [FIELD_LABEL_MAPPING.get(
+                            f, f) for f in selected_interventions]
+
+                        # 1. 优先生成"同时满足所有干预项"的条件
+                        simultaneous_cond = and_(
+                            *[get_column_by_field(f) == 1 for f in selected_interventions])
+                        conditions.append(
+                            (simultaneous_cond, literal(f" {'+'.join(label_names)}")))
+
+                        # 2. 生成"仅满足单个干预项"的条件（排除其他干预项）
+                        for f in selected_interventions:
+                            other_conditions = [get_column_by_field(
+                                other_f) == 0 for other_f in selected_interventions if other_f != f]
+                            exclusive_cond = and_(
+                                get_column_by_field(f) == 1, *other_conditions)
+                            label = FIELD_LABEL_MAPPING.get(f, f)
+                            conditions.append(
+                                (exclusive_cond, literal(f" {label}")))
+
+                        # 3. 统一生成分组表达式
+                        grouping_expr = case(
+                            *conditions,
+                            else_=literal("无任何干预")
+                        ).label("intervention_group")
+                        current_app.logger.debug(
+                            f"分组表达式 SQL: {str(grouping_expr)}")
+                        grouping_cols.append(grouping_expr)
+
+                        # 4. 统一添加筛选条件（仅一次）
+                        filter_conds = [get_column_by_field(
+                            f) == 1 for f in selected_interventions]
+                        query = query.filter(or_(*filter_conds))  # ✅ 正确位置
+                        # === 修改结束 ===
+                        continue  # 跳过后续逻辑，避免重复处理
+                    # === 插入结束 ===
+
                     if not field or field not in complete_fields:
                         continue
                     col = get_column_by_field(field)
@@ -493,7 +571,17 @@ def analysis_report():
         # 构造分组表达式
         if not use_fixed_template:
             if grouping_cols:
-                grouping_expr = grouping_cols[0]
+                # === 修改开始：优先使用干预方式分组 ===
+                # 检查是否存在干预方式分组
+                intervention_group = next(
+                    (expr for expr in grouping_cols if "intervention_group" in str(expr)),
+                    None
+                )
+                if intervention_group:
+                    grouping_expr = intervention_group  # 优先使用干预方式分组
+                else:
+                    grouping_expr = grouping_cols[0]    # 其他分组字段
+                # === 修改结束 ===
             else:
                 return jsonify({"error": "自定义查询模式下未传递分组条件"}), 400
         else:
@@ -538,6 +626,16 @@ def analysis_report():
         try:
             query = query.group_by(grouping_expr)
             dynamic_query = query.with_entities(*columns)
+
+            # ▼▼▼ 修复后的代码 ▼▼▼
+            if db.session.bind is not None:
+                compiled_sql = dynamic_query.statement.compile(
+                    dialect=db.session.bind.dialect)
+                current_app.logger.debug(f"完整查询 SQL: {str(compiled_sql)}")
+            else:
+                current_app.logger.warning("数据库连接未绑定，无法打印完整 SQL")
+            # ▲▲▲ 修复结束 ▲▲▲
+
             paginated = dynamic_query.paginate(
                 page=page, per_page=per_page, error_out=False)
             records = paginated.items

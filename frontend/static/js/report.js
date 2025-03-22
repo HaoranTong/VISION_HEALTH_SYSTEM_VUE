@@ -67,6 +67,22 @@ document.addEventListener("DOMContentLoaded", function () {
       if (typeof getComboConditions === "function") {
         const comboConds = getComboConditions();
         if (comboConds && comboConds.length > 0) {
+          // === 插入开始：干预方式字段映射 ===
+          comboConds.forEach((cond) => {
+            if (cond.field === "intervention_methods") {
+              // 将中文标签映射回字段名
+              cond.value = cond.value.map((v) => {
+                const field = Object.keys(
+                  comboQueryConfig.intervention_methods.labels
+                ).find(
+                  (key) =>
+                    comboQueryConfig.intervention_methods.labels[key] === v
+                );
+                return field || v;
+              });
+            }
+          });
+          // === 插入结束 ===
           params.append("advanced_conditions", JSON.stringify(comboConds));
         }
       }
@@ -220,6 +236,32 @@ document.addEventListener("DOMContentLoaded", function () {
       .then((data) => {
         if (data.error) throw new Error(data.error);
         latestReportData = data;
+
+        const fieldNameMap = {
+          vision_level: "视力等级",
+          intervention_methods: "干预方式",
+          gender: "性别",
+          age: "年龄",
+          school: "学校",
+          grade: "年级",
+          data_year: "数据年份",
+          interv_vision_level: "干预后视力等级",
+          left_eye_naked: "左眼裸眼视力",
+          right_eye_naked: "右眼裸眼视力",
+          left_eye_naked_interv: "左眼干预后裸眼视力",
+          right_eye_naked_interv: "右眼干预后裸眼视力",
+          guasha: "刮痧",
+          aigiu: "艾灸",
+          zhongyao_xunzheng: "中药熏蒸",
+          rejiu_training: "热灸训练",
+          xuewei_tiefu: "穴位贴敷",
+          reci_pulse: "热磁脉冲",
+          baoguan: "拔罐",
+          frame_glasses: "框架眼镜",
+          contact_lenses: "隐形眼镜",
+          night_orthokeratology: "夜戴角膜塑型镜",
+        };
+
         document.getElementById("reportTitle").textContent = data.tableName;
         document.getElementById("reportTimeAnnotation").textContent =
           data.filterAnnotation;
