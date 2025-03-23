@@ -33,6 +33,8 @@ from flask import Blueprint, request, jsonify, current_app
 import datetime
 import json
 import traceback
+from openpyxl.styles import numbers  # 确保导入 numbers 模块
+
 
 analysis_api = Blueprint("analysis_api", __name__)
 
@@ -134,72 +136,124 @@ def get_column_by_field(field):
 
 
 def build_multi_level_header(dynamic_metrics, group_title):
-    """
-    构造多层表头：
-    第一行: 第一列为分组字段名 (跨3行), 中间各统计指标字段名称 (每个占其选项数量*2列), 最后一列为统计总数 (跨3行)。
-    第二行: 每个统计指标字段下显示用户选中的二级选项 (每个占2列)。
-    第三行: 每个二级选项下固定显示 "数量" 与 "占比"。
-    """
     header = []
-    # 第一行
-    first_row = [{"text": group_title, "rowspan": 3}]
+    # 第一行：记录每个单元格的实际列起始位置
+    first_row = []
+    current_col = 1  # 列索引从1开始
+    first_row.append(
+        {"text": group_title, "rowspan": 3, "start_col": current_col})
+    current_col += 1  # 分组字段占1列
+
     for metric in dynamic_metrics:
         colspan = len(metric["selected"]) * 2
-        first_row.append({"text": metric["label"], "colspan": colspan})
-    first_row.append({"text": "统计总数", "rowspan": 3})
+        first_row.append({
+            "text": metric["label"],
+            "colspan": colspan,
+            "start_col": current_col  # 记录起始列
+        })
+        current_col += colspan  # 更新列索引
+
+    first_row.append({
+        "text": "统计总数",
+        "rowspan": 3,
+        "start_col": current_col  # 记录起始列
+    })
     header.append(first_row)
-    # 第二行
+
+    # 第二行：动态计算子项起始列
     second_row = []
+    current_col = 2  # 从分组字段后的第2列开始
     for metric in dynamic_metrics:
         for sub in metric["selected"]:
-            second_row.append({"text": sub, "colspan": 2})
+            second_row.append({
+                "text": sub,
+                "colspan": 2,
+                "start_col": current_col  # 记录起始列
+            })
+            current_col += 2  # 每个子项占2列
     header.append(second_row)
-    # 第三行
+
+    # === 第三行：动态计算每个单元格的列起始位置 ===
     third_row = []
+    current_col = 2  # 从第2列开始（第1列是分组字段）
     for metric in dynamic_metrics:
         for _ in metric["selected"]:
-            third_row.append({"text": "数量"})
-            third_row.append({"text": "占比"})
+            # 每个子项对应“数量”和“占比”，各占1列
+            third_row.append({"text": "数量", "start_col": current_col})
+            current_col += 1
+            third_row.append({"text": "占比", "start_col": current_col})
+            current_col += 1
     header.append(third_row)
     return header
 
 
+# def export_to_excel(header, data_rows, file_name):
+#    print("[DEBUG] Header结构:")
+#    for idx, row in enumerate(header):
+#        print(f"第{idx+1}行:", [{"text": cell["text"], "rowspan": cell.get(
+#            "rowspan"), "colspan": cell.get("colspan")} for cell in row])
+    # 其余代码不变
+    # 导出多层表头的 Excel 文件。
+    # :param header: 多层表头数据结构。
+    # :param data_rows: 数据行。
+    # :param file_name: 导出文件名称。
 def export_to_excel(header, data_rows, file_name):
-    """
-    导出多层表头的 Excel 文件。
-    :param header: 多层表头数据结构。
-    :param data_rows: 数据行。
-    :param file_name: 导出文件名称。
-    """
     wb = Workbook()
     ws = wb.active
-    # 写入表头
+
+    # === 1. 合并单元格 ===
     for row_idx, row in enumerate(header, start=1):
-        for col_idx, cell in enumerate(row, start=1):
-            ws.cell(row=row_idx, column=col_idx, value=cell["text"])
-            ws.cell(row=row_idx, column=col_idx).alignment = Alignment(
-                horizontal='center', vertical='center')
-    # 合并单元格
-    for row_idx, row in enumerate(header, start=1):
-        for col_idx, cell in enumerate(row, start=1):
-            if "rowspan" in cell:
+        current_col = 1  # 动态追踪列索引
+        for cell in row:
+            # 合并行（rowspan）
+            if "rowspan" in cell and cell["rowspan"] > 1:
+                start_col = cell.get("start_col", current_col)
+                end_row = row_idx + cell["rowspan"] - 1
                 ws.merge_cells(
                     start_row=row_idx,
-                    end_row=row_idx + cell["rowspan"] - 1,
-                    start_column=col_idx,
-                    end_column=col_idx
+                    end_row=end_row,
+                    start_column=start_col,
+                    end_column=start_col  # 列不变
                 )
-            if "colspan" in cell:
+            # 合并列（colspan）
+            if "colspan" in cell and cell["colspan"] > 1:
+                start_col = cell.get("start_col", current_col)
+                end_col = start_col + cell["colspan"] - 1
                 ws.merge_cells(
                     start_row=row_idx,
                     end_row=row_idx,
-                    start_column=col_idx,
-                    end_column=col_idx + cell["colspan"] - 1
+                    start_column=start_col,
+                    end_column=end_col
                 )
-    # 写入数据行
+            # 更新列索引
+            current_col = cell.get(
+                "start_col", current_col) + cell.get("colspan", 1)
+
+    # === 2. 写入所有表头单元格 ===
+    for row_idx, row in enumerate(header, start=1):
+        for cell in row:
+            # 获取记录的起始列
+            start_col = cell.get("start_col", 1)
+            # 仅当该单元格是合并的主单元格或普通单元格时写入
+            ws.cell(row=row_idx, column=start_col, value=cell["text"])
+            # 设置居中对齐
+            ws.cell(row=row_idx, column=start_col).alignment = Alignment(
+                horizontal='center', vertical='center'
+            )
+
+    # === 3. 写入数据行并设置百分比格式 ===
     for row_idx, row in enumerate(data_rows, start=len(header) + 1):
+        total_columns = len(row)  # 总列数（最后一列是统计总数）
         for col_idx, value in enumerate(row, start=1):
-            ws.cell(row=row_idx, column=col_idx, value=value)
+            cell = ws.cell(row=row_idx, column=col_idx, value=value)
+            # 判断是否为“占比”列（从第3列开始，每隔一列，且排除最后一列）
+            if col_idx >= 3 and col_idx < total_columns and (col_idx - 1) % 2 == 0:
+                cell.value = value / 100
+                # 设置百分比格式（假设原始值为小数，如0.5667表示56.67%）
+                cell.number_format = numbers.FORMAT_PERCENTAGE_00  # 显示为 "56.67%"
+                # 如果原始值为56.67（未除以100），需转换：
+                # cell.value = value / 100
+
     output = BytesIO()
     wb.save(output)
     output.seek(0)
@@ -263,25 +317,26 @@ def analysis_report():
                  # 打印日志，查看接收到的字段、运算符和值
                 print(
                     f"Received field: {field}, operator: {operator}, value: {value}")
-                '''
-                # === 插入开始 ===
-                # 处理布尔型字段
+                """
+                 === 插入开始 ===
+                 处理布尔型字段
                 if field in BOOLEAN_FIELDS:
                     # 如果值是数组，转换所有元素
                     if isinstance(value, list):
                         value = [True if v == "是" else False if v ==
                                  "否" else v for v in value]
-                    # 如果值是单一的字符串，转换为布尔值
+                     如果值是单一的字符串，转换为布尔值
                     else:
                         value = True if value == "是" else False if value == "否" else value
 
                     if operator == "like":  # 如果运算符是 'like'，我们强制替换成 '='
                         operator = "="
-                    # 限制布尔字段只能用 '=' 或 '!='
+                     限制布尔字段只能用 '=' 或 '!='
                     if operator not in ["=", "!="]:
                         return jsonify({"error": f"不支持的运算符 '{operator}' 对于布尔型字段 '{field}'"}), 400
-                # === 插入结束 ===
-                '''
+                 === 插入结束 ===
+                
+                """
                 role = cond.get("role", "").strip().lower()
                 if role == "group":
                     let_has_group = True
