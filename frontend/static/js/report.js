@@ -12,6 +12,8 @@
  *   并动态生成报表表头和数据表格。支持分页、导出报表以及查询模式（预设模板与自定义查询）的切换。
  */
 
+// import { getReportQueryParams } from './comboQuery_report.js';
+
 document.addEventListener("DOMContentLoaded", function () {
   const validParams = [
     "education_id",
@@ -40,6 +42,9 @@ document.addEventListener("DOMContentLoaded", function () {
   /**
    * 获取报表查询的 URL 参数
    */
+  // ----------------------
+// 以下为原 report.js 中的 getReportQueryParams() 定义，现已移动到 comboQuery_report.js 模块中，所以此处删除或注释掉
+/*
   function getReportQueryParams() {
     const params = new URLSearchParams();
     validParams.forEach((param) => {
@@ -93,6 +98,7 @@ document.addEventListener("DOMContentLoaded", function () {
     }
     return params;
   }
+  */
 
   /**
    * 验证统计报表查询的必选参数：
@@ -354,4 +360,14 @@ document.addEventListener("DOMContentLoaded", function () {
   if (exportReportBtn) {
     exportReportBtn.addEventListener("click", exportReport);
   }
+  
+  // 在 DOMContentLoaded 事件内添加以下代码  
+const toChartBtn = document.getElementById('toChartBtn');  
+if (toChartBtn) {  
+  toChartBtn.addEventListener('click', () => {  
+    // 获取当前所有查询参数（包括组合查询条件）  
+    const params = getReportQueryParams();  
+    window.location.href = `/chart?${params.toString()}`;  
+  });  
+}  
 });

@@ -16,6 +16,10 @@ from datetime import datetime
 from flask import Flask, render_template, send_from_directory
 from sqlalchemy.exc import SQLAlchemyError
 from backend.infrastructure.database import db
+from backend.api.import_api import import_api
+from backend.api.sidebar_api import sidebar_api
+from backend.api.query_api import query_api  # 新增：引入数据查询蓝图
+from backend.api.analysis_api import analysis_api
 
 
 def create_app():
@@ -37,10 +41,6 @@ def create_app():
             app.logger.error(f"数据库初始化错误: {str(e)}")
 
     try:
-        from backend.api.import_api import import_api
-        from backend.api.sidebar_api import sidebar_api
-        from backend.api.query_api import query_api  # 新增：引入数据查询蓝图
-        from backend.api.analysis_api import analysis_api
 
         app.register_blueprint(analysis_api)
         app.register_blueprint(import_api)

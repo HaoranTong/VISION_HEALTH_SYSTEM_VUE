@@ -792,3 +792,164 @@ def analysis_report():
     except Exception as exc:
         current_app.logger.error(f"统计报表接口异常: {str(exc)}")
         return jsonify({"error": str(exc)}), 500
+
+# 统计报表接口已经存在，此处新增图表数据接口
+
+
+@analysis_api.route("/api/analysis/chart", methods=["GET"])
+def analysis_chart():
+    try:
+        # 解析基本查询参数
+        stat_time = request.args.get("stat_time", "").strip()
+        # 默认值，如果 URL 参数中未提供，则在高级条件中查找
+        group_by_default = request.args.get("group_by", "").strip()
+        metric_default = request.args.get("metric", "").strip()
+        advanced_conditions_str = request.args.get(
+            "advanced_conditions", "").strip()
+
+        # 初始化角色变量
+        group_field = group_by_default
+        metric_field = metric_default
+        filter_conditions = []
+
+        # 解析高级查询条件，如果提供，则分别处理不同角色
+        if advanced_conditions_str:
+            try:
+                conditions = json.loads(advanced_conditions_str)
+            except Exception as e:
+                return jsonify({"error": "Invalid advanced_conditions format"}), 400
+
+            for cond in conditions:
+                role = cond.get("role", "").strip().lower()
+                field = cond.get("field", "").strip()
+                operator = cond.get("operator", "").strip()
+                value = cond.get("value")
+                # 处理分组条件：如果存在 role 为 "group"，则以此为分组字段（取第一个）
+                if role == "group" and field:
+                    group_field = field
+                    continue
+                # 处理统计指标条件：如果存在 role 为 "metric"，则以此为统计指标字段（取第一个）
+                if role == "metric" and field:
+                    metric_field = field
+                    continue
+                # 处理筛选条件（filter）
+                if role == "filter" and field and operator and value not in [None, "", []]:
+                    filter_conditions.append({
+                        "field": field,
+                        "operator": operator,
+                        "value": value
+                    })
+
+        # 检查必要参数：分组字段和统计指标字段必须存在
+        if not group_field or not metric_field:
+            return jsonify({"error": "Both group and metric fields must be specified either via URL parameters or advanced_conditions"}), 400
+
+        # 构造基础查询：关联 StudentExtension 与 Student
+        query = db.session.query(StudentExtension).join(
+            Student, StudentExtension.student_id == Student.id)
+
+        # 过滤数据：统计时间（例如数据年份）
+        if stat_time:
+            query = query.filter(StudentExtension.data_year == stat_time)
+
+        # 应用筛选条件（filter）
+        for cond in filter_conditions:
+            field = cond["field"]
+            operator = cond["operator"]
+            value = cond["value"]
+            col = None
+            # 优先在 StudentExtension 中查找，否则在 Student 中查找
+            if hasattr(StudentExtension, field):
+                col = getattr(StudentExtension, field)
+            elif hasattr(Student, field):
+                col = getattr(Student, field)
+            if col is None:
+                continue  # 忽略无效字段
+            # 根据 operator 构造过滤条件
+            if operator == "=":
+                query = query.filter(col == value)
+            elif operator == "!=":
+                query = query.filter(col != value)
+            elif operator.lower() == "like":
+                query = query.filter(col.ilike(f"%{value}%"))
+            elif operator == ">":
+                query = query.filter(col > value)
+            elif operator == "<":
+                query = query.filter(col < value)
+            elif operator == ">=":
+                query = query.filter(col >= value)
+            elif operator == "<=":
+                query = query.filter(col <= value)
+            # 如有其它运算符，可继续扩展
+
+        # 获取分组字段对象
+        if hasattr(StudentExtension, group_field):
+            group_col = getattr(StudentExtension, group_field)
+        elif hasattr(Student, group_field):
+            group_col = getattr(Student, group_field)
+        else:
+            return jsonify({"error": f"Invalid group field: {group_field}"}), 400
+
+        # 获取统计指标字段对象
+        if hasattr(StudentExtension, metric_field):
+            metric_col = getattr(StudentExtension, metric_field)
+        elif hasattr(Student, metric_field):
+            metric_col = getattr(Student, metric_field)
+        else:
+            return jsonify({"error": f"Invalid metric field: {metric_field}"}), 400
+
+        # 构造分组查询
+        # 统计每个分组的总记录数和统计指标非空的记录数
+        grouped = query.with_entities(
+            group_col.label("group_value"),
+            func.count().label("group_total"),
+            func.count(metric_col).label("metric_count")
+        ).group_by(group_col).all()
+
+        # 构造返回数据
+        labels = []
+        metric_counts = []
+        ratios = []  # 百分比
+        for row in grouped:
+            labels.append(str(row.group_value))
+            total = row.group_total or 0
+            count = row.metric_count or 0
+            metric_counts.append(count)
+            # 计算百分比
+            ratio = round((count / total * 100) if total > 0 else 0, 2)
+            ratios.append(ratio)
+
+        # 计算所有记录总数（可选，用于前端显示整体数据概览）
+        overall_total = query.with_entities(func.count()).scalar() or 0
+
+        # 生成背景颜色列表（循环使用固定颜色）
+        baseColors = [
+            "rgba(75, 192, 192, 0.5)",
+            "rgba(153, 102, 255, 0.5)",
+            "rgba(255, 159, 64, 0.5)",
+            "rgba(255, 205, 86, 0.5)"
+        ]
+        bgColors = (
+            baseColors * ((len(labels) // len(baseColors)) + 1))[:len(labels)]
+
+        response_data = {
+            "labels": labels,
+            "datasets": [
+                {
+                    "label": f"{metric_field} Count",
+                    "data": metric_counts,
+                    "backgroundColor": bgColors
+                },
+                {
+                    "label": f"{metric_field} Ratio (%)",
+                    "data": ratios,
+                    "backgroundColor": bgColors
+                }
+            ],
+            "total": overall_total
+        }
+        return jsonify(response_data)
+    except Exception as e:
+        current_app.logger.error("图表数据接口错误: " + str(e))
+        traceback.print_exc()
+        return jsonify({"error": "图表数据接口异常"}), 500

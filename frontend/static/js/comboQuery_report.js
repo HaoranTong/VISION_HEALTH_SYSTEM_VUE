@@ -688,3 +688,94 @@ document.addEventListener("DOMContentLoaded", function () {
 
 window.getComboConditions = getComboConditions;
 window.clearConditions = clearConditions;
+
+// ========================
+// 以下代码为从 report.js 中复制过来的 getReportQueryParams() 函数
+// 目的是统一构造查询参数，确保报表和图表页面保持一致
+// 请确认此处代码在模块中所有依赖变量（如 validParams、comboQueryConfig、getComboConditions）均能正常访问
+// ========================
+
+function getReportQueryParams() {
+  const params = new URLSearchParams();
+
+  // --- 1. 收集固定查询字段 ---
+  // validParams 为预定义的数组，包含 "education_id", "school", "grade", "class_name", "data_year", "name", "gender", "id_card"
+  const fixedParams = [
+    "education_id",
+    "school",
+    "grade",
+    "class_name",
+    "data_year",
+    "name",
+    "gender",
+    "id_card"
+  ];
+  fixedParams.forEach((param) => {
+    const el = document.getElementById(param);
+    if (el && el.value.trim()) {
+      params.append(param, el.value.trim());
+    }
+  });
+
+  console.log(params.toString())
+
+  // --- 2. 收集统计时间参数 ---
+  const statTimeEl = document.getElementById("statTime");
+  if (statTimeEl && statTimeEl.value.trim()) {
+    params.append("stat_time", statTimeEl.value.trim());
+  }
+
+  console.log(params.toString())
+
+  // --- 3. 收集查询模式参数 ---
+  const queryModeEl = document.getElementById("queryMode");
+  if (queryModeEl) {
+    params.append("query_mode", queryModeEl.value.trim());
+  }
+
+console.log(params.toString())
+
+  // --- 4. 根据查询模式处理模板或高级查询条件 ---
+  if (queryModeEl.value.trim() === "template") {
+    // 模板模式：获取模板下拉框的值
+    const templateSelect = document.getElementById("templateSelect");
+    if (templateSelect && templateSelect.value) {
+      params.append("template", templateSelect.value);
+    }
+  } else {
+    // 自定义查询模式：调用组合查询模块提供的 getComboConditions() 函数获取高级查询条件
+    if (typeof getComboConditions === "function") {
+      const comboConds = getComboConditions();
+      if (comboConds && comboConds.length > 0) {
+        // --- 针对干预方式字段进行特殊映射 ---
+        comboConds.forEach((cond) => {
+          if (cond.field === "intervention_methods") {
+            cond.value = cond.value.map((v) => {
+              const field = Object.keys(comboQueryConfig.intervention_methods.labels)
+                .find((key) => comboQueryConfig.intervention_methods.labels[key] === v);
+              return field || v;
+            });
+          }
+        });
+        params.append("advanced_conditions", JSON.stringify(comboConds));
+      }
+    }
+  }
+
+  console.log(params.toString())
+
+  // --- 5. 收集报表名称参数 ---
+  const reportNameInput = document.getElementById("reportNameInput");
+  if (reportNameInput && reportNameInput.value.trim()) {
+    params.append("report_name", reportNameInput.value.trim());
+  }
+
+  console.log(params.toString())
+
+  return params;
+}
+// 将函数挂载到 window 对象，确保全局可访问
+window.getReportQueryParams = getReportQueryParams;
+// ========================
+// 以上为导出的 getReportQueryParams() 函数
+// ========================
