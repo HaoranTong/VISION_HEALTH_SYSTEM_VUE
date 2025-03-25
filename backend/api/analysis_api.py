@@ -28,7 +28,7 @@ from io import BytesIO
 from backend.models.student_extension import StudentExtension
 from backend.models.student import Student
 from backend.infrastructure.database import db
-from sqlalchemy import func, and_, case, literal, or_  # ✅ 添加 or_
+from sqlalchemy import func, and_, case, literal, or_
 from flask import Blueprint, request, jsonify, current_app
 import datetime
 import json
@@ -43,7 +43,6 @@ BOOLEAN_FIELDS = [
     "guasha", "aigiu", "zhongyao_xunzheng", "rejiu_training", "xuewei_tiefu",
     "reci_pulse", "baoguan", "frame_glasses", "contact_lenses", "night_orthokeratology"
 ]
-
 
 # 定义允许的组合查询字段列表
 complete_fields = {
@@ -119,6 +118,7 @@ FIELD_LABEL_MAPPING = {
     "baoguan": "拔罐",
     "frame_glasses": "框架眼镜",
     "contact_lenses": "隐形眼镜",
+    "intervention_methods": "分组",
     "night_orthokeratology": "夜戴角膜塑型镜"
 }
 # === 插入结束 ===
@@ -187,16 +187,6 @@ def build_multi_level_header(dynamic_metrics, group_title):
     return header
 
 
-# def export_to_excel(header, data_rows, file_name):
-#    print("[DEBUG] Header结构:")
-#    for idx, row in enumerate(header):
-#        print(f"第{idx+1}行:", [{"text": cell["text"], "rowspan": cell.get(
-#            "rowspan"), "colspan": cell.get("colspan")} for cell in row])
-    # 其余代码不变
-    # 导出多层表头的 Excel 文件。
-    # :param header: 多层表头数据结构。
-    # :param data_rows: 数据行。
-    # :param file_name: 导出文件名称。
 def export_to_excel(header, data_rows, file_name):
     wb = Workbook()
     ws = wb.active
@@ -251,8 +241,6 @@ def export_to_excel(header, data_rows, file_name):
                 cell.value = value / 100
                 # 设置百分比格式（假设原始值为小数，如0.5667表示56.67%）
                 cell.number_format = numbers.FORMAT_PERCENTAGE_00  # 显示为 "56.67%"
-                # 如果原始值为56.67（未除以100），需转换：
-                # cell.value = value / 100
 
     output = BytesIO()
     wb.save(output)
@@ -372,14 +360,14 @@ def aggregate_query_data(query, query_mode, template, advanced_str):
                     conditions.append((exclusive_cond, literal(label)))
                 # 构造分组表达式（虚拟字段）
                 grouping_expr = case(
-                    *conditions, else_=literal("无任何干预")).label("intervention_group")
+                    *conditions, else_=literal("无上述干预")).label("row_name")
                 grouping_cols.append(grouping_expr)
                 # 同时添加干预方式的筛选条件（取任一条件即可）
                 filter_conditions.append(
                     or_(*[get_column_by_field(f) == 1 for f in selected_interventions]))
                 # 干预方式作为分组字段时，free_group_field 设为该字段
                 if not free_group_field:
-                    free_group_field = field
+                    free_group_field = "干预方式"
                 continue  # 已处理干预方式条件，跳过后续处理
 
             # 其他角色处理
@@ -451,7 +439,7 @@ def aggregate_query_data(query, query_mode, template, advanced_str):
                     # 非数值字段直接作为分组条件
                     if not free_group_field:
                         free_group_field = field
-                    grouping_cols.append(col)
+                        grouping_cols.append(col.label("row_name"))
                     if isinstance(value, list) and len(value) > 0:
                         filter_conditions.append(col.in_(value))
             elif role == "metric":
@@ -581,7 +569,7 @@ def aggregate_query_data(query, query_mode, template, advanced_str):
         else:
             # 如果没有数值分组条件，则直接使用已收集的分组列
             grouping_expr = grouping_cols[0] if grouping_cols else None
-            if not grouping_expr:
+            if grouping_expr is None:
                 raise ValueError("自定义查询模式下未传递分组条件")
     else:
         # 模板模式下，使用固定模板逻辑
@@ -842,7 +830,6 @@ def analysis_report():
         return jsonify({"error": str(exc)}), 500
 
 
-# 统计报表接口已经存在，此处新增图表数据接口
 @analysis_api.route("/api/analysis/chart", methods=["GET"])
 def analysis_chart():
     try:
