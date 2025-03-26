@@ -247,8 +247,6 @@ def export_to_excel(header, data_rows, file_name):
     output.seek(0)
     return output
 
-
-def aggregate_query_data(query, query_mode, template, advanced_str):
     """
     aggregate_query_data - 执行分组聚合操作，并返回统一的聚合数据结构，
     供统计报表与图表展示接口调用。此函数抽取了analysis_report中与查询过滤、
@@ -299,6 +297,27 @@ def aggregate_query_data(query, query_mode, template, advanced_str):
 
     遇到异常时，将直接抛出异常，由调用者捕获处理。
     """
+
+
+def aggregate_query_data(query, query_mode, template, advanced_str):
+    """
+    执行分组聚合操作，动态支持固定模板和自定义组合查询，
+    并返回统一的聚合数据结构，供报表页面和图表页面调用。
+
+    参数:
+      query: 已经初始化并应用基本过滤条件的 SQLAlchemy 查询对象，
+             通常关联 StudentExtension 与 Student 表。
+      query_mode: 查询模式，值为 "custom" 表示自定义组合查询，
+                  值为 "template" 表示固定模板查询。
+      template: 当 query_mode 为 "template" 时，表示预设模板名称，
+                例如 "template1" 表示按年龄段，"template2" 表示按性别。
+      advanced_str: 当 query_mode 为 "custom" 时，包含高级查询条件的 JSON 字符串。
+
+    返回:
+      一个字典，包含：
+        "data_rows": 二维数组，每行包括分组字段、各统计指标的计数及总记录数，
+        "free_group_field": 分组字段的中文名称（如 "性别" 或 "年龄"）。
+    """
     import datetime
     from sqlalchemy import func, and_, case, literal, or_
     import json
@@ -314,70 +333,119 @@ def aggregate_query_data(query, query_mode, template, advanced_str):
     group_singles = {}
     group_intervals = {}
 
-    # 如果自定义查询模式，解析 advanced_str
-    if query_mode == "custom":
+    # 分支1：当查询模式为固定模板（template）
+    if query_mode == "template":
+        # 根据模板设置默认的分组条件和统计指标条件
+        if template == "template1":
+            # 按年龄段分组，统计视力等级
+            grouping_cols = ["age"]
+            free_group_field = "年龄"
+            metric_conditions.append({"field": "vision_level", "selected": []})
+        elif template == "template2":
+            # 按性别分组，统计视力等级
+            grouping_cols = ["gender"]
+            free_group_field = "性别"
+            metric_conditions.append({"field": "vision_level", "selected": []})
+        else:
+            # 默认采用按性别分组
+            grouping_cols = ["gender"]
+            free_group_field = "性别"
+            metric_conditions.append({"field": "vision_level", "selected": []})
+        # 固定模板模式下，如果前端还提供了 advanced_str，则尝试解析并覆盖默认设置
+        if advanced_str:
+            try:
+                adv_conds = json.loads(advanced_str)
+                advanced_conditions = adv_conds  # 保存原始条件
+            except Exception as e:
+                raise ValueError("advanced_conditions 参数格式错误") from e
+            # 遍历高级条件，逐条处理（与自定义模式相同）
+            for cond in advanced_conditions:
+                field = cond.get("field", "").strip()
+                operator = cond.get("operator", "").strip().lower()
+                value = cond.get("value")
+                role = cond.get("role", "").strip().lower()
+                if not field or not operator or value in [None, "", []]:
+                    raise ValueError("请选择二级选项或填写数值或文本")
+                if role == "group":
+                    if field not in grouping_cols:
+                        grouping_cols.append(field)
+                        if not free_group_field:
+                            free_group_field = field
+                elif role == "metric":
+                    # 合并同一字段多次选择
+                    found = False
+                    for m in metric_conditions:
+                        if m["field"] == field:
+                            m["selected"].extend(
+                                value if isinstance(value, list) else [value])
+                            found = True
+                            break
+                    if not found:
+                        metric_conditions.append({
+                            "field": field,
+                            "selected": value if isinstance(value, list) else [value],
+                        })
+                elif role == "filter":
+                    filter_conditions.append((field, operator, value))
+        # 如果固定模板模式下未提供统计指标子选项，使用数据库中所有不同值（后续查询时统计时不做过滤）
+        for m in metric_conditions:
+            if not m["selected"]:
+                # 此处可根据实际情况查询 distinct 值，这里采用空列表表示统计全部
+                m["selected"] = []  # 为空表示统计全部 distinct 值
+
+    # 分支2：自定义查询模式
+    elif query_mode == "custom":
         try:
             adv_conds = json.loads(advanced_str)
-            advanced_conditions = adv_conds  # 保存原始条件
+            advanced_conditions = adv_conds
         except Exception as e:
             raise ValueError("advanced_conditions 参数格式错误") from e
 
-        # 遍历高级条件，逐条处理
-        for cond in adv_conds:
+        for cond in advanced_conditions:
             field = cond.get("field", "").strip()
             operator = cond.get("operator", "").strip().lower()
             value = cond.get("value")
             role = cond.get("role", "").strip().lower()
 
-            # 基本非空检查
             if not field or not operator or value in [None, "", []]:
                 raise ValueError("请选择二级选项或填写数值或文本")
 
-            # 特殊处理：如果字段为干预方式
+            # 特殊处理：干预方式字段
             if role == "group" and field == "intervention_methods":
-                # 验证并构造干预方式分组条件
                 selected_interventions = value if isinstance(
                     value, list) else []
                 if not selected_interventions:
                     raise ValueError("干预方式必须至少选择一个选项")
-                # 此处假定存在 FIELD_LABEL_MAPPING 用于映射字段中文标签
-                from backend.api.analysis_api import FIELD_LABEL_MAPPING  # 根据实际位置导入
+                from backend.api.analysis_api import FIELD_LABEL_MAPPING
                 conditions = []
                 label_names = [FIELD_LABEL_MAPPING.get(
                     f, f) for f in selected_interventions]
-                # 条件1：同时满足所有干预项
                 simultaneous_cond = and_(
                     *[get_column_by_field(f) == 1 for f in selected_interventions])
                 conditions.append(
                     (simultaneous_cond, literal(" ".join(label_names))))
-                # 条件2：仅满足单个干预项（排除其他干预项）
                 for f in selected_interventions:
-                    other_conditions = [get_column_by_field(other_f) == 0
-                                        for other_f in selected_interventions if other_f != f]
+                    other_conditions = [get_column_by_field(
+                        other_f) == 0 for other_f in selected_interventions if other_f != f]
                     exclusive_cond = and_(
                         get_column_by_field(f) == 1, *other_conditions)
                     label = FIELD_LABEL_MAPPING.get(f, f)
                     conditions.append((exclusive_cond, literal(label)))
-                # 构造分组表达式（虚拟字段）
                 grouping_expr = case(
                     *conditions, else_=literal("无上述干预")).label("row_name")
                 grouping_cols.append(grouping_expr)
-                # 同时添加干预方式的筛选条件（取任一条件即可）
                 filter_conditions.append(
                     or_(*[get_column_by_field(f) == 1 for f in selected_interventions]))
-                # 干预方式作为分组字段时，free_group_field 设为该字段
                 if not free_group_field:
                     free_group_field = "干预方式"
-                continue  # 已处理干预方式条件，跳过后续处理
+                continue
 
-            # 其他角色处理
             from backend.api.analysis_api import complete_fields, METRIC_CONFIG
             if field not in complete_fields:
                 continue
 
             col = get_column_by_field(field)
             if role == "group":
-                # 针对 number_range 类型，处理单值或区间条件
                 if METRIC_CONFIG.get(field, {}).get("type") == "number_range":
                     if isinstance(value, dict):
                         min_val = value.get("min", "").strip()
@@ -402,7 +470,6 @@ def aggregate_query_data(query, query_mode, template, advanced_str):
                         else:
                             raise ValueError(f"字段 '{field}' 必须输入具体数值或选择选项")
                     elif isinstance(value, list) and len(value) > 0:
-                        # 如果列表中元素为字典，则为区间条件
                         if isinstance(value[0], dict):
                             for v in value:
                                 min_val = v.get("min", "").strip()
@@ -436,7 +503,6 @@ def aggregate_query_data(query, query_mode, template, advanced_str):
                             raise ValueError(f"字段 '{field}' 数值转换错误")
                         continue
                 else:
-                    # 非数值字段直接作为分组条件
                     if not free_group_field:
                         free_group_field = field
                         grouping_cols.append(col.label("row_name"))
@@ -445,7 +511,6 @@ def aggregate_query_data(query, query_mode, template, advanced_str):
             elif role == "metric":
                 if not isinstance(value, list) or len(value) == 0:
                     raise ValueError(f"统计指标 '{field}' 未选择任何子选项")
-                # 合并同一字段多次选择
                 found = False
                 for m in metric_conditions:
                     if m["field"] == field:
@@ -460,7 +525,6 @@ def aggregate_query_data(query, query_mode, template, advanced_str):
                     })
             elif role == "filter":
                 try:
-                    # 根据运算符构造筛选条件
                     if isinstance(value, dict) and "min" in value and "max" in value:
                         try:
                             filter_conditions.append(
@@ -509,7 +573,7 @@ def aggregate_query_data(query, query_mode, template, advanced_str):
                 except Exception as exc:
                     raise ValueError(f"解析高级条件失败: {str(exc)}") from exc
 
-    # 判断必须存在分组条件与统计指标条件
+    # 判断必须存在分组条件与统计指标条件（自定义模式）
     if query_mode == "custom":
         if not metric_conditions or not (grouping_cols or group_intervals or group_singles):
             raise ValueError("请选择统计指标或分组")
@@ -518,7 +582,6 @@ def aggregate_query_data(query, query_mode, template, advanced_str):
     grouping_expr = None
     if query_mode == "custom":
         if group_intervals:
-            # 针对区间条件，取第一个字段进行处理
             field = list(group_intervals.keys())[0]
             col = get_column_by_field(field)
             intervals = group_intervals[field]
@@ -545,7 +608,7 @@ def aggregate_query_data(query, query_mode, template, advanced_str):
                 else:
                     max_label = str(max_val_f)
                 cases.append((and_(col >= min_val_f, col <= max_val_f),
-                              literal(f"{min_label}-{max_label}")))
+                             literal(f"{min_label}-{max_label}")))
             grouping_expr = case(*cases, else_=literal("其他")).label("row_name")
             if not free_group_field:
                 free_group_field = field
@@ -567,12 +630,11 @@ def aggregate_query_data(query, query_mode, template, advanced_str):
                 free_group_field = field
             grouping_cols.append(grouping_expr)
         else:
-            # 如果没有数值分组条件，则直接使用已收集的分组列
             grouping_expr = grouping_cols[0] if grouping_cols else None
             if grouping_expr is None:
                 raise ValueError("自定义查询模式下未传递分组条件")
     else:
-        # 模板模式下，使用固定模板逻辑
+        # 模板模式下：使用固定模板逻辑
         from backend.models.student_extension import StudentExtension
         from backend.models.student import Student
         if template == "template1":
@@ -588,7 +650,7 @@ def aggregate_query_data(query, query_mode, template, advanced_str):
             grouping_expr = Student.gender.label("row_name")
             free_group_field = "gender"
 
-    # 应用筛选条件到查询
+    # 应用筛选条件
     if filter_conditions:
         query = query.filter(and_(*filter_conditions))
 
@@ -605,23 +667,21 @@ def aggregate_query_data(query, query_mode, template, advanced_str):
             raise ValueError("自定义查询模式下必须指定至少一个统计指标")
         dynamic_metrics = metric_conditions
 
-    # 构造查询列：分组表达式、总记录数，以及各统计指标的子选项计数
+    # 构造查询列：分组表达式、总记录数，以及各统计指标子项计数
     columns = [grouping_expr, func.count().label("total_count")]
     for metric in dynamic_metrics:
         field = metric["field"]
         col = get_column_by_field(field)
         for sub in metric["selected"]:
-            expr = func.sum(case((col == sub, 1), else_=0)).label(
-                f"{field}_{sub}_count")
+            expr = func.sum(case((col == sub, 1), else_=0)
+                            ).label(f"{field}_{sub}_count")
             columns.append(expr)
 
     # 分组并构造查询对象
     query = query.group_by(grouping_expr)
     dynamic_query = query.with_entities(*columns)
-    # 分页处理在顶层不在此函数中执行，返回聚合查询对象与必需数据
 
-    # 执行查询并分页由调用者处理，此处只返回聚合数据结构
-    # 获取所有记录
+    # 执行查询
     records = dynamic_query.all()
 
     # 构造数据行和合计行
@@ -661,7 +721,6 @@ def aggregate_query_data(query, query_mode, template, advanced_str):
     else:
         data_rows = []
 
-    # 构造返回数据结构
     aggregated_data = {
         "grouping_expr": grouping_expr,
         "dynamic_metrics": dynamic_metrics,
@@ -669,7 +728,7 @@ def aggregate_query_data(query, query_mode, template, advanced_str):
         "free_group_field": free_group_field,
         "records": records,
         "advanced_conditions": advanced_conditions,
-        "query": dynamic_query  # 返回最终构造的查询对象
+        "query": dynamic_query
     }
     return aggregated_data
 
@@ -832,158 +891,122 @@ def analysis_report():
 
 @analysis_api.route("/api/analysis/chart", methods=["GET"])
 def analysis_chart():
+    """
+    图表数据接口：
+    根据请求参数调用统一的聚合查询函数 aggregate_query_data，
+    获取分组统计数据，并将数据转换为 Chart.js 所需的格式（包含 labels 与多个 datasets）。
+    支持固定模板与自定义查询两种模式，确保 report 页面和 chart 页面数据一致。
+    本接口会根据返回的聚合数据中每一行结构进行解析：
+      假定每行数据结构为：
+        [分组值, 指标1_count, 指标1_ratio, 指标2_count, 指标2_ratio, ..., 总记录数]
+    对于固定模板（如 template2 按性别），动态指标使用 FIXED_METRICS 中的 distinct_vals，
+    例如：["临床前期近视", "轻度近视", "中度近视"]。图表将为每个指标生成一条 dataset，
+    并在 tooltip 中显示百分比信息（前端可在 tooltip 回调中计算）。
+    """
     try:
-        # 解析基本查询参数
-        stat_time = request.args.get("stat_time", "").strip()
-        # 默认值，如果 URL 参数中未提供，则在高级条件中查找
-        group_by_default = request.args.get("group_by", "").strip()
-        metric_default = request.args.get("metric", "").strip()
-        advanced_conditions_str = request.args.get(
+        # 获取请求参数
+        query_mode = request.args.get("query_mode", "template").strip()
+        template = request.args.get("template", "").strip()
+        advanced_conditions = request.args.get(
             "advanced_conditions", "").strip()
+        stat_time = request.args.get("stat_time", "").strip()
+        chart_type = request.args.get("chart_type", "bar").strip()
 
-        # 初始化角色变量
-        group_field = group_by_default
-        metric_field = metric_default
-        filter_conditions = []
+        current_app.logger.info(
+            f"analysis_chart parameters: query_mode={query_mode}, template={template}, "
+            f"advanced_conditions={advanced_conditions}, stat_time={stat_time}, chart_type={chart_type}"
+        )
 
-        # 解析高级查询条件，如果提供，则分别处理不同角色
-        if advanced_conditions_str:
-            try:
-                conditions = json.loads(advanced_conditions_str)
-            except Exception as e:
-                return jsonify({"error": "Invalid advanced_conditions format"}), 400
+        # 如果未提供查询条件（固定模板及高级条件均为空），返回空数据
+        if not template and not advanced_conditions:
+            current_app.logger.info(
+                "No query parameters provided, returning empty chart data.")
+            return jsonify({
+                "labels": [],
+                "datasets": [],
+                "chart_type": chart_type,
+                "message": "No data. Please provide query parameters."
+            }), 200
 
-            for cond in conditions:
-                role = cond.get("role", "").strip().lower()
-                field = cond.get("field", "").strip()
-                operator = cond.get("operator", "").strip()
-                value = cond.get("value")
-                # 处理分组条件：如果存在 role 为 "group"，则以此为分组字段（取第一个）
-                if role == "group" and field:
-                    group_field = field
-                    continue
-                # 处理统计指标条件：如果存在 role 为 "metric"，则以此为统计指标字段（取第一个）
-                if role == "metric" and field:
-                    metric_field = field
-                    continue
-                # 处理筛选条件（filter）
-                if role == "filter" and field and operator and value not in [None, "", []]:
-                    filter_conditions.append({
-                        "field": field,
-                        "operator": operator,
-                        "value": value
-                    })
-
-        # 检查必要参数：分组字段和统计指标字段必须存在
-        if not group_field or not metric_field:
-            return jsonify({"error": "Both group and metric fields must be specified either via URL parameters or advanced_conditions"}), 400
-
-        # 构造基础查询：关联 StudentExtension 与 Student
+        # 构造基础查询对象：关联 StudentExtension 与 Student 表
         query = db.session.query(StudentExtension).join(
             Student, StudentExtension.student_id == Student.id)
-
-        # 过滤数据：统计时间（例如数据年份）
         if stat_time:
             query = query.filter(StudentExtension.data_year == stat_time)
 
-        # 应用筛选条件（filter）
-        for cond in filter_conditions:
-            field = cond["field"]
-            operator = cond["operator"]
-            value = cond["value"]
-            col = None
-            # 优先在 StudentExtension 中查找，否则在 Student 中查找
-            if hasattr(StudentExtension, field):
-                col = getattr(StudentExtension, field)
-            elif hasattr(Student, field):
-                col = getattr(Student, field)
-            if col is None:
-                continue  # 忽略无效字段
-            # 根据 operator 构造过滤条件
-            if operator == "=":
-                query = query.filter(col == value)
-            elif operator == "!=":
-                query = query.filter(col != value)
-            elif operator.lower() == "like":
-                query = query.filter(col.ilike(f"%{value}%"))
-            elif operator == ">":
-                query = query.filter(col > value)
-            elif operator == "<":
-                query = query.filter(col < value)
-            elif operator == ">=":
-                query = query.filter(col >= value)
-            elif operator == "<=":
-                query = query.filter(col <= value)
-            # 如有其它运算符，可继续扩展
+        # 调用统一聚合查询函数
+        aggregated_data = aggregate_query_data(
+            query, query_mode, template, advanced_conditions)
+        # aggregated_data 包含 keys: "data_rows", "free_group_field", "dynamic_metrics"（仅在自定义模式下有，否则在模板模式下由 FIXED_METRICS 填充）
+        data_rows = aggregated_data.get("data_rows", [])
+        # 排除合计行（假定合计行的分组标签为 "合计"）
+        data_rows = [row for row in data_rows if row[0] != "合计"]
+        if not data_rows:
+            return jsonify({
+                "labels": [],
+                "datasets": [],
+                "chart_type": chart_type,
+                "message": "No data found for given query."
+            }), 200
 
-        # 获取分组字段对象
-        if hasattr(StudentExtension, group_field):
-            group_col = getattr(StudentExtension, group_field)
-        elif hasattr(Student, group_field):
-            group_col = getattr(Student, group_field)
-        else:
-            return jsonify({"error": f"Invalid group field: {group_field}"}), 400
+        # 提取分组标签（第一列）
+        labels = [str(row[0]) for row in data_rows]
 
-        # 获取统计指标字段对象
-        if hasattr(StudentExtension, metric_field):
-            metric_col = getattr(StudentExtension, metric_field)
-        elif hasattr(Student, metric_field):
-            metric_col = getattr(Student, metric_field)
-        else:
-            return jsonify({"error": f"Invalid metric field: {metric_field}"}), 400
+        # 计算每行的列数，假定最后一列为总记录数，前面除分组字段和总记录数外，每两个列代表一个指标的 [count, ratio]
+        num_cols = len(data_rows[0])
+        # 计算指标个数
+        num_metrics = int((num_cols - 2) / 2)  # 例如，如果每行有8列，则有 (8-2)/2 = 3 指标
 
-        # 构造分组查询
-        # 统计每个分组的总记录数和统计指标非空的记录数
-        grouped = query.with_entities(
-            group_col.label("group_value"),
-            func.count().label("group_total"),
-            func.count(metric_col).label("metric_count")
-        ).group_by(group_col).all()
+        # 为每个指标生成一个 dataset。获取指标名称来源：
+        # 如果 query_mode 为 "template"，使用 FIXED_METRICS；否则使用 dynamic_metrics 从 advanced_conditions 解析
+        dynamic_metrics = aggregated_data.get("dynamic_metrics")
+        # 在模板模式下，若 dynamic_metrics 为空，则从 FIXED_METRICS 中构造
+        if query_mode == "template" and (not dynamic_metrics or len(dynamic_metrics) == 0):
+            from backend.api.analysis_api import FIXED_METRICS
+            dynamic_metrics = []
+            for metric in FIXED_METRICS:
+                new_metric = dict(metric)
+                new_metric["selected"] = metric.get("distinct_vals", [])
+                dynamic_metrics.append(new_metric)
+        # 此处假设 dynamic_metrics 是一个列表，且只处理第一个统计指标字段，其 "selected" 为列表，如 ["临床前期近视", "轻度近视", "中度近视"]
+        sub_options = []
+        if dynamic_metrics and isinstance(dynamic_metrics, list) and len(dynamic_metrics) > 0:
+            sub_options = dynamic_metrics[0].get("selected", [])
+        # 如果 sub_options 的长度不等于 num_metrics，则按顺序取前 num_metrics 个；如果不足则以 "指标1", "指标2",... 填充
+        if len(sub_options) < num_metrics:
+            for i in range(len(sub_options), num_metrics):
+                sub_options.append(f"指标{i+1}")
 
-        # 构造返回数据
-        labels = []
-        metric_counts = []
-        ratios = []  # 百分比
-        for row in grouped:
-            labels.append(str(row.group_value))
-            total = row.group_total or 0
-            count = row.metric_count or 0
-            metric_counts.append(count)
-            # 计算百分比
-            ratio = round((count / total * 100) if total > 0 else 0, 2)
-            ratios.append(ratio)
-
-        # 计算所有记录总数（可选，用于前端显示整体数据概览）
-        overall_total = query.with_entities(func.count()).scalar() or 0
-
-        # 生成背景颜色列表（循环使用固定颜色）
+        # 定义颜色调色板
         baseColors = [
             "rgba(75, 192, 192, 0.5)",
             "rgba(153, 102, 255, 0.5)",
             "rgba(255, 159, 64, 0.5)",
             "rgba(255, 205, 86, 0.5)"
         ]
-        bgColors = (
-            baseColors * ((len(labels) // len(baseColors)) + 1))[:len(labels)]
 
-        response_data = {
+        datasets = []
+        for j in range(num_metrics):
+            # 对于每个指标，取每行的 count 值所在列：列索引 = 1 + 2*j
+            dataset_data = [row[1 + 2 * j] for row in data_rows]
+            # 使用 sub_options 提供的指标名称
+            dataset_label = sub_options[j] if j < len(
+                sub_options) else f"指标{j+1}"
+            # 分配背景颜色（循环使用调色板）
+            bgColors = (
+                baseColors * ((len(labels) // len(baseColors)) + 1))[:len(labels)]
+            datasets.append({
+                "label": dataset_label,
+                "data": dataset_data,
+                "backgroundColor": bgColors
+            })
+
+        # 返回 Chart.js 格式数据
+        return jsonify({
             "labels": labels,
-            "datasets": [
-                {
-                    "label": f"{metric_field} Count",
-                    "data": metric_counts,
-                    "backgroundColor": bgColors
-                },
-                {
-                    "label": f"{metric_field} Ratio (%)",
-                    "data": ratios,
-                    "backgroundColor": bgColors
-                }
-            ],
-            "total": overall_total
-        }
-        return jsonify(response_data)
+            "datasets": datasets,
+            "chart_type": chart_type
+        })
     except Exception as e:
-        current_app.logger.error("图表数据接口错误: " + str(e))
-        traceback.print_exc()
-        return jsonify({"error": "图表数据接口异常"}), 500
+        current_app.logger.error("Error in /api/analysis/chart: " + str(e))
+        return jsonify({"error": str(e)}), 400
