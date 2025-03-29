@@ -43,8 +43,8 @@ document.addEventListener("DOMContentLoaded", function () {
    * 获取报表查询的 URL 参数
    */
   // ----------------------
-// 以下为原 report.js 中的 getReportQueryParams() 定义，现已移动到 comboQuery_report.js 模块中，所以此处删除或注释掉
-/*
+  // 以下为原 report.js 中的 getReportQueryParams() 定义，现已移动到 comboQuery_report.js 模块中，所以此处删除或注释掉
+  /*
   function getReportQueryParams() {
     const params = new URLSearchParams();
     validParams.forEach((param) => {
@@ -360,14 +360,15 @@ document.addEventListener("DOMContentLoaded", function () {
   if (exportReportBtn) {
     exportReportBtn.addEventListener("click", exportReport);
   }
-  
-  // 在 DOMContentLoaded 事件内添加以下代码  
-const toChartBtn = document.getElementById('toChartBtn');  
-if (toChartBtn) {  
-  toChartBtn.addEventListener('click', () => {  
-    // 获取当前所有查询参数（包括组合查询条件）  
-    const params = getReportQueryParams();  
-    window.location.href = `/chart?${params.toString()}`;  
-  });  
-}  
+
+  // 在 DOMContentLoaded 事件内添加以下代码
+  const toChartBtn = document.getElementById("toChartBtn");
+  if (toChartBtn) {
+    toChartBtn.addEventListener("click", () => {
+      const params = getReportQueryParams();
+      params.delete("page");
+      params.delete("per_page");
+      window.location.href = `/chart?${params.toString()}`;
+    });
+  }
 });

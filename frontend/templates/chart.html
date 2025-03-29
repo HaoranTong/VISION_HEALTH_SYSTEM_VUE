@@ -16,46 +16,74 @@
     页面通过 Flask 模板引擎渲染，并与后端 /api/analysis/chart 接口联调，确保查询条件一致与数据同步。
 -->
 
-{% extends "layouts/base.html" %}
-{% block title %}图表展示 - 近视预防干预系统{% endblock %}
-
-{% block styles %}
-  <!-- 引入公共组合查询和统计报表样式 -->
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/comboQuery.css') }}">
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/report.css') }}">
-  <!-- 引入图表展示专用样式 -->
-  <link rel="stylesheet" href="{{ url_for('static', filename='css/chart.css') }}">
-{% endblock %}
-
-{% block content %}
+{% extends "layouts/base.html" %} {% block title %}图表展示 - 近视预防干预系统{%
+endblock %} {% block styles %}
+<!-- 引入公共组合查询和统计报表样式 -->
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', filename='css/comboQuery.css') }}"
+/>
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', filename='css/report.css') }}"
+/>
+<!-- 引入图表展示专用样式 -->
+<link
+  rel="stylesheet"
+  href="{{ url_for('static', filename='css/chart.css') }}"
+/>
+{% endblock %} {% block content %}
 <div class="container my-4">
   <!-- 查询区域（与统计报表页面共享） -->
   <div class="report-query-row">
     <div class="card report-combo-query-card">
       <div class="card-header">
         <!-- 下拉框及输入框均使用公共辅助类，确保横向排列 -->
-        <select id="templateSelect" class="form-select form-select-sm d-inline-block auto-width">
+        <select
+          id="templateSelect"
+          class="form-select form-select-sm d-inline-block auto-width"
+        >
           <option value="">请选择模版</option>
           <option value="template1">按年龄段</option>
           <option value="template2">按性别</option>
         </select>
-        <select id="statTime" class="form-select form-select-sm d-inline-block auto-width ml-10">
+        <select
+          id="statTime"
+          class="form-select form-select-sm d-inline-block auto-width ml-10"
+        >
           <option value="">请选择统计时间</option>
           {% for year in range(2023, 2031) %}
-            <option value="{{ year }}">{{ year }}</option>
+          <option value="{{ year }}">{{ year }}</option>
           {% endfor %}
         </select>
-        <input type="text" id="reportNameInput" class="form-control form-control-sm d-inline-block auto-width ml-10" placeholder="请输入报表名称">
-        <select id="queryMode" class="form-select form-select-sm d-inline-block auto-width ml-10">
+        <input
+          type="text"
+          id="reportNameInput"
+          class="form-control form-control-sm d-inline-block auto-width ml-10"
+          placeholder="请输入报表名称"
+        />
+        <select
+          id="queryMode"
+          class="form-select form-select-sm d-inline-block auto-width ml-10"
+        >
           <option value="template" selected>预设模板查询</option>
           <option value="custom">自定义查询</option>
         </select>
-        <button id="saveTemplateBtn" class="btn btn-sm btn-secondary">保存模板</button>
-        <button id="addConditionBtn" class="btn btn-sm btn-primary">添加条件</button>
+        <button id="saveTemplateBtn" class="btn btn-sm btn-secondary">
+          保存模板
+        </button>
+        <button id="addConditionBtn" class="btn btn-sm btn-primary">
+          添加条件
+        </button>
         <button id="clearBtn" class="btn btn-sm btn-warning">取消</button>
-        <button id="reportSearchBtn" class="btn btn-sm btn-success">查询</button>
+        <button id="reportSearchBtn" class="btn btn-sm btn-success">
+          查询
+        </button>
         <!-- 新增：图表类型选择下拉框 -->
-        <select id="chartType" class="form-select form-select-sm d-inline-block auto-width ml-10">
+        <select
+          id="chartType"
+          class="form-select form-select-sm d-inline-block auto-width ml-10"
+        >
           <option value="bar">柱状图</option>
           <option value="pie">饼图</option>
           <option value="line">折线图</option>
@@ -65,7 +93,7 @@
         <!-- 动态生成的组合查询条件区域 -->
         <div id="advancedQueryContainer"></div>
         <!-- 隐藏输入框用于存储组合查询条件 JSON 字符串 -->
-        <input type="hidden" id="comboConditions" value="">
+        <input type="hidden" id="comboConditions" value="" />
       </div>
     </div>
   </div>
@@ -75,20 +103,28 @@
     <div class="card">
       <div class="card-body">
         <!-- 加载提示 -->
-        <div id="loading" class="text-center" style="display: none;">
+        <div id="loading" class="text-center" style="display: none">
           <div class="spinner-border text-primary" role="status">
             <span class="visually-hidden">加载中...</span>
           </div>
           <p>正在生成图表，请稍候...</p>
         </div>
         <!-- 图表标题及附注区域（可选，如无标题则保持空） -->
-        <div id="chartTitleContainer" class="d-flex justify-content-between align-items-center">
+        <div
+          id="chartTitleContainer"
+          class="d-flex justify-content-between align-items-center"
+        >
           <h5 id="chartTitle" class="mb-3"></h5>
           <span id="chartTimeAnnotation" class="mb-3"></span>
         </div>
         <!-- 图表画布 -->
         <canvas id="analysisChart"></canvas>
       </div>
+              <!-- 新增：展示合计数据 -->
+        <div
+          id="aggregateInfo"
+          style="margin-top: 10px; text-align: center; font-weight: bold"
+        ></div>
       <div class="card-footer text-end">
         <button id="exportChartBtn" class="btn btn-info btn-sm">
           <i class="bi bi-download"></i> 导出图表
@@ -100,12 +136,9 @@
     </div>
   </div>
 </div>
-{% endblock %}
-
-{% block scripts %}
-  {{ super() }}
-  <!-- 共享组合查询模块脚本 -->
-  <script src="{{ url_for('static', filename='js/comboQuery_report.js') }}"></script>
-  <!-- 图表展示页面逻辑脚本 -->
-  <script src="{{ url_for('static', filename='js/chart.js') }}"></script>
+{% endblock %} {% block scripts %} {{ super() }}
+<!-- 共享组合查询模块脚本 -->
+<script src="{{ url_for('static', filename='js/comboQuery_report.js') }}"></script>
+<!-- 图表展示页面逻辑脚本 -->
+<script src="{{ url_for('static', filename='js/chart.js') }}"></script>
 {% endblock %}
