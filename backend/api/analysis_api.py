@@ -19,110 +19,46 @@
 6. 针对高级条件解析中数值字段，区分单值与区间查询；支持多个区间（每个区间以字典形式传入），以及单一数值（若 dict 中只有 min 或 max），并对区间标签进行格式化（整数显示为整数，浮点数保留小数），同时在累加过程中将 None 转换为 0。
 7. 扩展 METRIC_CONFIG 配置，添加 complete_fields 列表中所有字段的配置。
 """
+# pylint: disable=unused-import 临时禁用警告
 
+# 标准库
+import datetime
+import json
+import traceback
+from io import BytesIO
+from itertools import combinations
+from typing import TYPE_CHECKING
+if TYPE_CHECKING:
+    from backend.models.student_extension import StudentExtension  # 静态类型检查
+
+
+# 第三方库
+from sqlalchemy import func, and_, case, literal, or_
+from flask import Blueprint, request, jsonify, current_app
+from openpyxl.styles import numbers  # 确保导入 numbers 模块
+from backend.infrastructure.database import db
 from openpyxl import Workbook
 from openpyxl.styles import Alignment
 from flask import send_file
 import pandas as pd
-from io import BytesIO
 from backend.models.student_extension import StudentExtension
-from backend.models.student import Student
-from backend.infrastructure.database import db
-from sqlalchemy import func, and_, case, literal, or_
-from flask import Blueprint, request, jsonify, current_app
-import datetime
-import json
-import traceback
-from openpyxl.styles import numbers  # 确保导入 numbers 模块
 
+
+# 本地导入
+from backend.models.student_extension import StudentExtension  # 必须添加
+from backend.models.student import Student
+from backend.constants import (
+    COMPLETE_FIELDS as complete_fields,
+    BOOLEAN_FIELDS,
+    FIELD_LABEL_MAPPING,
+    METRIC_CONFIG,
+    FIXED_METRICS
+)
 
 analysis_api = Blueprint("analysis_api", __name__)
 
-# 定义布尔型字段
-BOOLEAN_FIELDS = [
-    "guasha", "aigiu", "zhongyao_xunzheng", "rejiu_training", "xuewei_tiefu",
-    "reci_pulse", "baoguan", "frame_glasses", "contact_lenses", "night_orthokeratology"
-]
-
-# 定义允许的组合查询字段列表
-complete_fields = {
-    "data_year", "education_id", "school", "grade", "class_name", "name", "gender", "age",
-    "vision_level", "interv_vision_level", "left_eye_naked", "right_eye_naked",
-    "left_eye_naked_interv", "right_eye_naked_interv", "left_naked_change", "right_naked_change",
-    "left_sphere_change", "right_sphere_change", "left_cylinder_change", "right_cylinder_change",
-    "left_axis_change", "right_axis_change", "left_interv_effect", "right_interv_effect",
-    "left_sphere_effect", "right_sphere_effect", "left_cylinder_effect", "right_cylinder_effect",
-    "left_axis_effect", "right_axis_effect", "left_eye_corrected", "right_eye_corrected",
-    "left_keratometry_K1", "right_keratometry_K1", "left_keratometry_K2", "right_keratometry_K2",
-    "left_axial_length", "right_axial_length", "guasha", "aigiu", "zhongyao_xunzheng", "rejiu_training", "xuewei_tiefu",
-    "reci_pulse", "baoguan", "frame_glasses", "contact_lenses", "night_orthokeratology"
-}
 
 # 固定模板下的统计指标配置（仅支持 "vision_level"）
-FIXED_METRICS = [{
-    "field": "vision_level",
-    "label": "视力等级",
-    "distinct_vals": ["临床前期近视", "轻度近视", "中度近视"]
-}]
-
-# 自定义查询模式下可使用的统计指标配置，扩展 complete_fields 中所有字段
-METRIC_CONFIG = {
-    "education_id": {"label": "教育ID号", "type": "text"},
-    "school": {"label": "学校", "type": "multi-select", "options": ["华兴小学", "苏宁红军小学", "师大附小清华小学"]},
-    "class_name": {"label": "班级", "type": "dropdown", "options": [f"{i}班" for i in range(1, 16)]},
-    "name": {"label": "姓名", "type": "text"},
-    "gender": {"label": "性别", "type": "multi-select", "options": ["男", "女"]},
-    "age": {"label": "年龄", "type": "number_range"},
-    "data_year": {"label": "数据年份", "type": "dropdown", "options": ["2023", "2024", "2025", "2026", "2027", "2028"]},
-    "grade": {"label": "年级", "type": "multi-select", "options": ["一年级", "二年级", "三年级", "四年级", "五年级", "六年级", "七年级", "八年级", "九年级"]},
-    "vision_level": {"label": "视力等级", "type": "multi-select", "options": ["临床前期近视", "轻度近视", "中度近视", "假性近视", "正常"]},
-    "interv_vision_level": {"label": "干预后视力等级", "type": "multi-select", "options": ["临床前期近视", "轻度近视", "中度近视", "假性近视", "正常"]},
-    "left_eye_naked": {"label": "左眼-裸眼视力", "type": "number_range"},
-    "right_eye_naked": {"label": "右眼-裸眼视力", "type": "number_range"},
-    "left_eye_naked_interv": {"label": "左眼-干预-裸眼视力", "type": "number_range"},
-    "right_eye_naked_interv": {"label": "右眼-干预-裸眼视力", "type": "number_range"},
-    "left_naked_change": {"label": "左眼裸眼视力变化", "type": "number_range"},
-    "right_naked_change": {"label": "右眼裸眼视力变化", "type": "number_range"},
-    "left_eye_corrected": {"label": "左眼-矫正视力", "type": "number_range"},
-    "right_eye_corrected": {"label": "右眼-矫正视力", "type": "number_range"},
-    "left_keratometry_K1": {"label": "左眼-角膜曲率K1", "type": "number_range"},
-    "right_keratometry_K1": {"label": "右眼-角膜曲率K1", "type": "number_range"},
-    "left_keratometry_K2": {"label": "左眼-角膜曲率K2", "type": "number_range"},
-    "right_keratometry_K2": {"label": "右眼-角膜曲率K2", "type": "number_range"},
-    "left_axial_length": {"label": "左眼-眼轴", "type": "number_range"},
-    "right_axial_length": {"label": "右眼-眼轴", "type": "number_range"},
-    "left_sphere_change": {"label": "左眼屈光-球镜变化", "type": "number_range"},
-    "right_sphere_change": {"label": "右眼屈光-球镜变化", "type": "number_range"},
-    "left_cylinder_change": {"label": "左眼屈光-柱镜变化", "type": "number_range"},
-    "right_cylinder_change": {"label": "右眼屈光-柱镜变化", "type": "number_range"},
-    "left_axis_change": {"label": "左眼屈光-轴位变化", "type": "number_range"},
-    "right_axis_change": {"label": "右眼屈光-轴位变化", "type": "number_range"},
-    "left_interv_effect": {"label": "左眼视力干预效果", "type": "multi-select", "options": ["上升", "维持", "下降"]},
-    "right_interv_effect": {"label": "右眼视力干预效果", "type": "multi-select", "options": ["上升", "维持", "下降"]},
-    "left_sphere_effect": {"label": "左眼球镜干预效果", "type": "multi-select", "options": ["上升", "维持", "下降"]},
-    "right_sphere_effect": {"label": "右眼球镜干预效果", "type": "multi-select", "options": ["上升", "维持", "下降"]},
-    "left_cylinder_effect": {"label": "左眼柱镜干预效果", "type": "multi-select", "options": ["上升", "维持", "下降"]},
-    "right_cylinder_effect": {"label": "右眼柱镜干预效果", "type": "multi-select", "options": ["上升", "维持", "下降"]},
-    "left_axis_effect": {"label": "左眼轴位干预效果", "type": "multi-select", "options": ["上升", "维持", "下降"]},
-    "right_axis_effect": {"label": "右眼轴位干预效果", "type": "multi-select", "options": ["上升", "维持", "下降"]}
-}
-
-# === 插入开始：定义字段名到中文标签的映射 ===
-FIELD_LABEL_MAPPING = {
-    "guasha": "刮痧",
-    "aigiu": "艾灸",
-    "zhongyao_xunzheng": "中药熏蒸",
-    "rejiu_training": "热灸训练",
-    "xuewei_tiefu": "穴位贴敷",
-    "reci_pulse": "热磁脉冲",
-    "baoguan": "拔罐",
-    "frame_glasses": "框架眼镜",
-    "contact_lenses": "隐形眼镜",
-    "intervention_methods": "分组",
-    "night_orthokeratology": "夜戴角膜塑型镜"
-}
-# === 插入结束 ===
-
 
 def get_column_by_field(field):
     """
@@ -318,9 +254,11 @@ def aggregate_query_data(query, query_mode, template, advanced_str):
         "data_rows": 二维数组，每行包括分组字段、各统计指标的计数及总记录数，
         "free_group_field": 分组字段的中文名称（如 "性别" 或 "年龄"）。
     """
-    import datetime
-    from sqlalchemy import func, and_, case, literal, or_
-    import json
+  # ===== 新增：强制全局引用 =====
+    global StudentExtension
+    from backend.models.student_extension import StudentExtension as _StudentExtension
+    StudentExtension = _StudentExtension
+    # ===== 新增结束 =====
 
     # 保存解析后的高级条件，用于后续生成筛选附注
     advanced_conditions = []
@@ -410,38 +348,60 @@ def aggregate_query_data(query, query_mode, template, advanced_str):
             if not field or not operator or value in [None, "", []]:
                 raise ValueError("请选择二级选项或填写数值或文本")
 
-            # 特殊处理：干预方式字段
+            # 修改后的干预方式分组处理逻辑
             if role == "group" and field == "intervention_methods":
                 selected_interventions = value if isinstance(
                     value, list) else []
+                current_app.logger.debug(
+                    f"用户选择的干预项目: {selected_interventions}")
+
+                # 校验干预字段有效性（使用预定义的布尔字段列表）
+                invalid_fields = set(
+                    selected_interventions) - set(BOOLEAN_FIELDS)
+                if invalid_fields:
+                    raise ValueError(f"无效的干预字段: {invalid_fields}")
                 if not selected_interventions:
                     raise ValueError("干预方式必须至少选择一个选项")
-                from backend.api.analysis_api import FIELD_LABEL_MAPPING
+
                 conditions = []
-                label_names = [FIELD_LABEL_MAPPING.get(
-                    f, f) for f in selected_interventions]
-                simultaneous_cond = and_(
-                    *[get_column_by_field(f) == 1 for f in selected_interventions])
-                conditions.append(
-                    (simultaneous_cond, literal(" ".join(label_names))))
-                for f in selected_interventions:
-                    other_conditions = [get_column_by_field(
-                        other_f) == 0 for other_f in selected_interventions if other_f != f]
-                    exclusive_cond = and_(
-                        get_column_by_field(f) == 1, *other_conditions)
-                    label = FIELD_LABEL_MAPPING.get(f, f)
-                    conditions.append((exclusive_cond, literal(label)))
-                grouping_expr = case(
-                    *conditions, else_=literal("无上述干预")).label("row_name")
+
+                # 1. 生成所有可能的组合（从1项到全选）
+                for combo_size in range(1, len(selected_interventions) + 1):
+                    for combo in combinations(selected_interventions, combo_size):
+                        # 当前组合中的干预必须为True
+                        selected_conds = [
+                            getattr(StudentExtension, f) == True for f in combo]
+
+                        # 其他勾选的干预必须为False（仅检查用户勾选的字段！）
+                        other_conds = [
+                            getattr(StudentExtension, f) == False
+                            for f in selected_interventions
+                            if f not in combo
+                        ]
+
+                        # 不检查未勾选的干预字段！
+                        combo_name = "+".join([FIELD_LABEL_MAPPING.get(f, f)
+                                              for f in combo])
+                        conditions.append((
+                            and_(*selected_conds, *other_conds),
+                            literal(combo_name)
+                        ))
+
+                # 2. 添加无干预组（仅要求所有勾选的干预为False）
+                no_intervention_conds = [
+                    getattr(StudentExtension, f) == False
+                    for f in selected_interventions
+                ]
+                conditions.append((
+                    and_(*no_intervention_conds),
+                    literal("无干预措施")
+                ))
+
+                # 构造分组表达式（不再有"其他"分组）
+                grouping_expr = case(*conditions).label("row_name")
                 grouping_cols.append(grouping_expr)
-                filter_conditions.append(
-                    or_(*[get_column_by_field(f) == 1 for f in selected_interventions]))
                 if not free_group_field:
                     free_group_field = "干预方式"
-                continue
-
-            from backend.api.analysis_api import complete_fields, METRIC_CONFIG
-            if field not in complete_fields:
                 continue
 
             col = get_column_by_field(field)
@@ -1009,4 +969,5 @@ def analysis_chart():
         })
     except Exception as e:
         current_app.logger.error("Error in /api/analysis/chart: " + str(e))
+
         return jsonify({"error": str(e)}), 400
