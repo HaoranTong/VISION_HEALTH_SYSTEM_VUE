@@ -28,6 +28,10 @@ def create_app():
                     os.getcwd(), 'frontend', 'templates'),
                 static_folder=os.path.join(os.getcwd(), 'frontend', 'static'))
 
+    # 设置日志级别为 DEBUG
+    app.logger.setLevel(logging.DEBUG)
+    logging.basicConfig(level=logging.DEBUG)
+
     base_dir = os.path.abspath(os.path.dirname(__file__))
     app.config['SQLALCHEMY_DATABASE_URI'] = f"sqlite:///{os.path.join(base_dir, 'instance', 'app.db')}"
     app.config['SQLALCHEMY_TRACK_MODIFICATIONS'] = False
@@ -78,6 +82,7 @@ def create_app():
     @app.route('/api/students/import', methods=['POST'])
     def import_students():
         print("收到上传请求")  # 测试后端是否被调用
+        app.logger.debug("收到上传请求")  # 使用日志记录，确保输出到终端
         return {"message": "上传成功"}, 200
 
     return app
@@ -85,9 +90,9 @@ def create_app():
 
 application = create_app()
 
-logging.basicConfig(level=logging.INFO)
+logging.basicConfig(level=logging.DEBUG)
 
 
 if __name__ == '__main__':
-    logging.basicConfig(level=logging.INFO)
+    logging.basicConfig(level=logging.DEBUG)
     application.run(host='0.0.0.0', port=5000, debug=True)

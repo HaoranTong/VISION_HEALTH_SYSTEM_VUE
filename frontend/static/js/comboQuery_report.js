@@ -42,7 +42,7 @@ const comboQueryConfig = {
   school: {
     label: "学校",
     type: "multi-select",
-    options: ["华兴小学", "苏宁红军小学校", "师大附小清华小学"],
+    options: ["华兴小学", "苏宁红军小学校", "师大附小清华小学校"],
   },
   grade: {
     label: "年级",
