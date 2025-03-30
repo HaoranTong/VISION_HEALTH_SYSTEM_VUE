@@ -22,8 +22,9 @@
       - file: 上传的 .xlsx 或 .csv 文件
       - data_year: 数据年份（由前端下拉选择，格式为4位字符串，如 "2024"）
 """
-
+import traceback
 import os
+import time
 from datetime import datetime
 
 import pandas as pd
@@ -143,6 +144,50 @@ import_api = Blueprint("import_api", __name__)
 
 @import_api.route("/api/students/import", methods=["POST"])
 def import_students():
+
+    # ============== 这里开始替换代码 ==============
+    # 基础校验（不在try块内）
+    if 'file' not in request.files:
+        current_app.logger.error("未找到上传文件")
+        return jsonify({"error": "未找到上传文件"}), 400
+
+    file = request.files['file']
+    if file.filename == '':
+        current_app.logger.error("收到空文件名")
+        return jsonify({"error": "未选择文件"}), 400
+
+    # 核心处理逻辑（用完整的try-except包裹）
+    try:
+        current_app.logger.debug("=== 开始处理请求 ===")
+        current_app.logger.debug(f"请求表单数据: {request.form}")
+        current_app.logger.debug(f"请求文件: {request.files}")
+
+        filename = secure_filename(file.filename)
+        current_app.logger.debug(f"DEBUG: 原始文件名: {file.filename}")
+        current_app.logger.debug(f"DEBUG: secure_filename 后: {filename}")
+
+        if '.' not in filename:
+            current_app.logger.error("文件名缺少扩展名")
+            return jsonify({"error": "文件名缺少扩展名"}), 400
+
+        ext = filename.rsplit('.', 1)[1].lower()
+        if ext not in ALLOWED_EXTENSIONS:
+            current_app.logger.error(f"不支持的文件扩展名 .{ext}")
+            return jsonify({"error": f"不支持的文件扩展名 .{ext}"}), 400
+
+        temp_filepath = os.path.join(
+            TEMP_UPLOAD_DIR, f"upload_{int(time.time())}.{ext}")
+        file.save(temp_filepath)
+
+        current_app.logger.debug(f"文件已成功保存到: {temp_filepath}")
+
+    except Exception as e:
+        current_app.logger.error(f"文件处理异常: {str(e)}")
+        if 'temp_filepath' in locals() and os.path.exists(temp_filepath):
+            os.remove(temp_filepath)
+        return jsonify({"error": f"文件处理错误: {str(e)}"}), 500
+    # ============== 这里结束替换代码 ==============
+
     """
     学生数据导入接口
     处理上传的 Excel 或 CSV 文件，解析数据，对每行数据进行必填字段校验和格式转换，
@@ -172,6 +217,23 @@ def import_students():
     temp_filepath = os.path.join(TEMP_UPLOAD_DIR, filename)
     file.save(temp_filepath)
 
+    # ============== 这里开始插入/替换代码 ==============
+    # 安全处理文件名和扩展名
+    filename = secure_filename(file.filename)
+    current_app.logger.debug(f"DEBUG: 原始文件名: {file.filename}")
+    current_app.logger.debug(f"DEBUG: secure_filename 后: {filename}")
+
+    # 增强扩展名提取
+    if '.' not in filename:
+        return jsonify({"error": "文件名缺少扩展名"}), 400
+    ext = filename.rsplit('.', 1)[1].lower()
+    if ext not in ALLOWED_EXTENSIONS:
+        return jsonify({"error": f"不支持的文件扩展名 .{ext}"}), 400
+
+    temp_filepath = os.path.join(
+        TEMP_UPLOAD_DIR, f"upload_{int(time.time())}.{ext}")
+    # ============== 这里结束插入代码 ==============
+
     try:
         ext = filename.rsplit('.', 1)[1].lower()
         if ext == 'xlsx':
@@ -184,6 +246,24 @@ def import_students():
 
         df.columns = df.columns.str.strip()
         current_app.logger.debug(f"DEBUG: DataFrame 列名： {list(df.columns)}")
+
+        # ============== 这里开始插入代码 ==============
+        # 增强调试日志
+        current_app.logger.debug("=== 文件解析诊断日志 ===")
+        current_app.logger.debug(f"文件类型: {ext}")
+        current_app.logger.debug(f"原始列名: {df.columns.tolist()}")
+        current_app.logger.debug(f"总行数(解析后): {len(df)}")
+        if len(df) > 0:
+            current_app.logger.debug("首行数据样例:")
+            for col, val in df.iloc[0].items():
+                current_app.logger.debug(f"  {col}: {repr(val)}")
+            current_app.logger.debug("末行数据样例:")
+            for col, val in df.iloc[-1].items():
+                current_app.logger.debug(f"  {col}: {repr(val)}")
+        else:
+            current_app.logger.warning("警告: 解析到空DataFrame")
+# ============== 这里结束插入代码 ==============
+
         current_app.logger.debug(f"DEBUG: DataFrame 行数： {len(df)}")
         current_app.logger.debug(
             f"DEBUG: DataFrame 前5行数据： {df.head().to_string()}")
