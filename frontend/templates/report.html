@@ -1,0 +1,80 @@
+﻿<!-- 文件名称: report.html -->
+<!-- 完整路径: frontend/templates/report.html -->
+<!-- 功能说明: 统计报表页面，支持固定模板和自由组合查询 -->
+{% extends "layouts/base.html" %}
+{% block title %}统计报表 - 近视预防干预系统{% endblock %}
+
+{% block styles %}  
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/comboQuery.css') }}">
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/report.css') }}">
+{% endblock %}
+
+{% block content %}
+<div class="container my-4">
+  <div class="report-query-row">
+    <div class="card report-combo-query-card">
+      <div class="card-header">
+        <select id="templateSelect" class="form-select form-select-sm d-inline-block" style="width: auto;">
+          <option value="">请选择模版</option>
+          <option value="template1">按年龄段</option>
+          <option value="template2">按性别</option>
+        </select>
+        <select id="statTime" class="form-select form-select-sm d-inline-block" style="width: auto; margin-left:10px;">
+          <option value="">请选择统计时间</option>
+          {% for year in range(2023, 2031) %}
+            <option value="{{ year }}">{{ year }}</option>
+          {% endfor %}
+        </select>
+        <input type="text" id="reportNameInput" class="form-control form-control-sm d-inline-block" style="width: auto; margin-left:10px;" placeholder="请输入报表名称">
+        <select id="queryMode" class="form-select form-select-sm d-inline-block" style="width: auto; margin-left:10px;">
+          <option value="template" selected>预设模板查询</option>
+          <option value="custom">自定义查询</option>
+        </select>
+        <button id="saveTemplateBtn" class="btn btn-sm btn-secondary">保存模板</button>
+        <button id="addConditionBtn" class="btn btn-sm btn-primary">添加条件</button>
+        <button id="clearBtn" class="btn btn-sm btn-warning">取消</button>
+        <button id="reportSearchBtn" class="btn btn-sm btn-success">查询</button>
+      </div>
+      <div class="card-body condition-container">
+        <div id="advancedQueryContainer"></div>
+        <input type="hidden" id="comboConditions" value="">
+      </div>
+    </div>
+  </div>
+
+  <div class="report-table-row mt-4">
+    <div class="card">
+      <div class="card-header">统计报表</div>
+      <div class="card-body">
+        <div id="loading" style="display: none; text-align: center;">
+          <div class="spinner-border text-primary" role="status">
+            <span class="visually-hidden">加载中...</span>
+          </div>
+          <p>正在生成报表，请稍候...</p>
+        </div>
+        <div id="reportTitleContainer" class="d-flex justify-content-between align-items-center">
+          <h5 id="reportTitle" class="mb-3"></h5>
+          <span id="reportTimeAnnotation" class="mb-3" style="font-size:inherit;"></span>
+        </div>
+        <table class="table table-bordered">
+          <thead id="reportTableHead"></thead>
+          <tbody id="reportTableBody"></tbody>
+        </table>
+        <nav>
+          <ul class="pagination" id="pagination"></ul>
+        </nav>
+      </div>
+      <div class="card-footer text-end">
+        <button id="exportReportBtn" class="btn btn-info btn-sm"><i class="bi bi-download"></i> 导出报表</button>
+        <button id="toChartBtn" class="btn btn-primary btn-sm"><i class="bi bi-bar-chart"></i> 查看图表</button>
+      </div>
+    </div>
+  </div>
+</div>
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <script src="{{ url_for('static', filename='js/comboQuery_report.js') }}"></script>
+  <script src="{{ url_for('static', filename='js/report.js') }}"></script>
+{% endblock %}

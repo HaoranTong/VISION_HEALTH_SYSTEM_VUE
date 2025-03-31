@@ -1,0 +1,53 @@
+﻿<!--
+文件名称: index.html
+完整存储路径: frontend/templates/index.html
+功能说明:
+    系统首页调试页面，通过继承基础模板 (base.html) 加载全局导航、侧边栏和全局样式，
+    展示欢迎信息、统计卡片以及图表区域，用于展示统计数据和动态图示。
+使用说明:
+    1. 通过浏览器访问 "/" 获取首页。
+    2. 页面中展示欢迎信息和统计卡片，图表区域通过 Chart.js 初始化图表（请确保 index.js 已配置）。
+    3. 首页样式文件为 index.css，通过 block styles 引入，仅在首页使用。
+-->
+
+{% extends "layouts/base.html" %}
+{% block title %}系统首页 - 近视预防干预系统{% endblock %}
+
+{% block content %}
+<main class="main-content-container">
+  <!-- 欢迎信息区域 -->
+  <section class="welcome-section text-center">
+    <h1 class="display-4"><i class="bi bi-eye"></i> 欢迎使用近视预防干预系统</h1>
+    <p class="text-muted">数据更新于：{{ current_time }}</p>
+  </section>
+
+  <!-- 统计卡片展示区域 -->
+  <div class="stats-container">
+    <div class="stat-card bg-primary">
+      <div class="stat-icon"><i class="bi bi-people"></i></div>
+      <h3>筛查总人数</h3>
+      <div class="stat-value">{{ total_students }}</div>
+    </div>
+    <!-- 可根据需要添加其他统计卡片 -->
+  </div>
+
+  <!-- 图表展示区域 -->
+  <div class="chart-container">
+    <div class="chart-card">
+      <canvas id="visionChart"></canvas>
+    </div>
+  </div>
+</main>
+{% endblock %}
+
+{% block scripts %}
+  {{ super() }}
+  <!-- 加载首页专用 JavaScript 文件 -->
+  <script src="{{ url_for('static', filename='js/index.js') }}"></script>
+{% endblock %}
+
+{% block styles %}
+  {{ super() }}
+  <!-- 加载首页专用 CSS 文件 -->
+  <link rel="stylesheet" href="{{ url_for('static', filename='css/index.css') }}">
+{% endblock %}

@@ -1,0 +1,52 @@
+﻿/*
+文件名称: chart.css
+完整存储路径: frontend/static/css/chart.css
+功能说明:
+    本文件用于图表展示页面图表区域的样式控制，确保图表区域自适应屏幕高度，
+    并且不影响查询区域的布局。通过限定选择器 #chartDisplayArea，仅对图表区域生效。
+    同时定义辅助类 .auto-width、.ml-10 用于恢复查询区域的原有排列样式，
+    以及 .pie-chart 类用于饼图固定正方形尺寸和居中显示。
+使用说明:
+    在 chart.html 中，图表展示区域的最外层容器需添加 id="chartDisplayArea"。
+*/
+
+/* 辅助类 */
+.auto-width {
+    width: auto !important;
+}
+.ml-10 {
+    margin-left: 10px !important;
+}
+
+/* 图表展示区域 */
+#chartDisplayArea {
+    /* 根据实际页面布局，假设查询区域等占用约300px高度 */
+    height: calc(100vh - 200px);
+    overflow: hidden;
+}
+
+#chartDisplayArea .card {
+    height: 100%;
+}
+
+#chartDisplayArea .card > .card-body {
+    /* 假设卡片 footer 占用约50px */
+    height: calc(100% - 50px); /* 假设 footer 高度为 50px */ 
+    position: relative;
+    overflow: hidden;
+}
+
+/* 图表画布填充卡片主体 */
+#analysisChart {
+    width: 100%;
+    height: 100%;
+    display: block;
+}
+
+/* 饼图专用样式：确保画布为固定正方形并居中 */
+.pie-chart {
+    width: 550px !important;
+    height: 550px !important;
+    display: block;
+    margin: 0 auto;
+}

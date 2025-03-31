@@ -1,0 +1,88 @@
+﻿<!-- 
+  文件名称: data_import.html
+  完整存储路径: E:\DEV_CONTEXT\1_Projects\VISION_HEALTH_SYSTEM_VUE\frontend\templates\data_import.html
+  功能说明:
+      数据导入测试页面，支持上传 Excel(.xlsx) 和 CSV(.csv) 文件。页面继承自基础模板(base.html)，
+      并在主内容区(main-content-container)内显示。包含文件拖拽/选择、数据年份选择及上传按钮，
+      后端上传接口URL通过隐藏字段存储，并在 data_import.js 中使用 fetch() 发起 POST 请求。
+  使用说明:
+      1. 在浏览器中访问 /import 路由，进入该页面。
+      2. 下拉选择数据年份(默认2023)，再点击“选择文件”或拖拽文件到上传区域选取测试文件。
+      3. 点击“上传文件”按钮开始上传，上传结果(成功记录数、失败记录数及失败记录文件下载链接)会在页面下方显示。
+      4. 若需取消上传，可点击“取消”按钮，清空已选择的文件。
+-->
+
+{% extends "layouts/base.html" %}
+
+{% block title %}数据导入 - 近视预防干预系统{% endblock %}
+
+{% block content %}
+<div class="container mt-4">
+  <div class="row">
+    <div class="col-12 col-md-10 offset-md-1">
+      <!-- 外部卡片容器，使用 Bootstrap 样式 -->
+      <div class="card shadow-sm">
+        <!-- 卡片头部 -->
+        <div class="card-header bg-primary text-white">
+          <h2 class="h4 mb-0">数据导入</h2>
+        </div>
+        <!-- 卡片主体内容 -->
+        <div class="card-body">
+          <p class="text-muted">
+            请选择或拖拽要导入的 Excel (.xlsx) 或 CSV (.csv) 文件。上传后将自动校验数据，
+            合格记录保存到数据库，失败记录生成“上传失败记录表”供下载查看。
+          </p>
+          
+          <!-- 上传区域 -->
+          <div id="uploadArea" 
+               class="border rounded p-4 mb-4 text-center" 
+               style="min-height:150px; transition: background 0.3s;">
+            <p class="text-muted mb-2">将文件拖放到此处或点击按钮选择文件</p>
+            <button id="selectFileBtn" class="btn btn-primary">选择文件</button>
+            <!-- 隐藏的文件输入控件 -->
+            <input type="file" id="fileInput" style="display: none;" multiple>
+          </div>
+          
+          <!-- 已选文件列表 -->
+          <div id="fileList" class="mb-3"></div>
+          
+          <!-- 数据年份选择 + 上传操作 -->
+          <div class="row g-3 align-items-center mb-3">
+            <div class="col-auto">
+              <label for="dataYearSelect" class="col-form-label fw-bold">选择数据年份</label>
+            </div>
+            <div class="col-auto">
+              <select id="dataYearSelect" class="form-select">
+                {% for year in range(2023, 2031) %}
+                <option value="{{ year }}">{{ year }}</option>
+                {% endfor %}
+              </select>
+            </div>
+          </div>
+          
+          <div class="d-flex flex-wrap gap-2 mb-3">
+            <button id="uploadBtn" class="btn btn-success">
+              <i class="bi bi-upload me-1"></i>上传文件
+            </button>
+            <button id="cancelBtn" class="btn btn-danger">
+              <i class="bi bi-x-circle me-1"></i>取消
+            </button>
+          </div>
+          
+          <!-- 上传结果状态显示区域 -->
+          <div id="uploadStatus" class="mt-3"></div>
+          
+          <!-- 隐藏字段存储上传接口 URL -->
+          <input type="hidden" id="importStudentsUrl" value="{{ url_for('import_api.import_students') }}">
+        </div> <!-- end .card-body -->
+      </div> <!-- end .card -->
+    </div> <!-- end .col-12 col-md-10 offset-md-1 -->
+  </div> <!-- end .row -->
+</div> <!-- end .container -->
+{% endblock %}
+
+{% block scripts %}
+  {{ super }}
+  <!-- 引入 data_import.js 脚本，确保在底部只声明一次 -->
+  <script src="{{ url_for('static', filename='js/data_import.js') }}"></script>
+{% endblock %}

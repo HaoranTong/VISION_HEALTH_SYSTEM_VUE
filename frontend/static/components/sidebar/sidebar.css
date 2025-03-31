@@ -1,0 +1,101 @@
+﻿/*
+文件名称: sidebar.css
+完整存储路径: frontend/static/components/sidebar/sidebar.css
+功能说明:
+    定义侧边栏组件样式，采用独立命名空间 "visionhealth-sidebar"。
+    使用 CSS 变量传递状态，确保组件内部样式与全局隔离。
+    更新说明：在侧边栏折叠状态下隐藏一级菜单中的三角箭头。
+使用说明:
+    在 HTML 中正确引入此 CSS 文件，无需额外配置。
+*/
+
+:root {
+  --visionhealth-sidebar-width: 250px;
+  --visionhealth-sidebar-collapsed-width: 60px;
+}
+
+.visionhealth-sidebar {
+  position: fixed;
+  left: 0;
+  top: 0;
+  width: var(--visionhealth-sidebar-width);
+  height: 100vh;
+  background: #506c88;
+  z-index: 1000;
+  transition: width 0.3s ease;
+  box-shadow: 2px 0 5px rgba(0, 0, 0, 0.1);
+}
+
+.visionhealth-sidebar[data-collapsed="true"] {
+  width: var(--visionhealth-sidebar-collapsed-width);
+}
+
+/* 当侧边栏折叠时，隐藏标题和菜单文字以及三角箭头 */
+.visionhealth-sidebar[data-collapsed="true"] .visionhealth-sidebar__title,
+.visionhealth-sidebar[data-collapsed="true"] .visionhealth-sidebar__menu-text,
+.visionhealth-sidebar[data-collapsed="true"] .visionhealth-sidebar__submenu-icon {
+  display: none;
+}
+
+.visionhealth-sidebar__header {
+  padding: 15px;
+  border-bottom: 1px solid #1462af;
+  display: flex;
+  align-items: center;
+  height: 60px;
+}
+
+.visionhealth-sidebar__icon {
+  font-size: 24px;
+  color: #ecf0f1;
+  margin-right: 10px;
+}
+
+.visionhealth-sidebar__title {
+  font-size: 18px;
+  color: #ecf0f1;
+  margin: 0;
+}
+
+.visionhealth-sidebar__menu {
+  list-style: none;
+  padding: 0;
+  margin: 15px 0;
+  overflow-y: auto;
+  height: calc(100vh - 100px);
+}
+
+/* 菜单项及二级菜单样式 */
+.visionhealth-sidebar__menu-item {
+  margin: 5px 0;
+}
+
+.visionhealth-sidebar__menu-link {
+  display: flex;
+  align-items: center;
+  text-decoration: none;
+  padding: 8px;
+  color: #bdc3c7;
+  transition: background 0.2s;
+}
+
+.visionhealth-sidebar__menu-link:hover {
+  background-color: rgba(255, 255, 255, 0.1);
+}
+
+.visionhealth-sidebar__menu-icon {
+  min-width: 24px;
+  text-align: center;
+  margin-right: 8px;
+}
+
+/* 二级子菜单 */
+.visionhealth-sidebar__submenu {
+  list-style: none;
+  padding-left: 20px;
+  display: none;
+}
+
+.visionhealth-sidebar__menu-item.active > .visionhealth-sidebar__submenu {
+  display: block;
+}

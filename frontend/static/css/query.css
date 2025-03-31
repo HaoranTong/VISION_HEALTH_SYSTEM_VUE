@@ -1,0 +1,81 @@
+﻿/* 
+文件名称: query.css
+完整存储路径: frontend/static/css/query.css
+功能说明:
+  本文件为数据查询页面（query.html）的局部样式文件，整合了原有样式和本次针对固定查询区域与组合查询区域布局的调整。
+  主要目标：
+    1. 使用 .query-top-row 将固定查询区域和组合查询区域并排显示，各占50%宽度；
+    2. 固定查询区域第一排中，每个输入框或下拉框（.col-md-2）占20%宽度；
+    3. 固定查询区域第二排调整为：
+         - 姓名输入框（class name-col）占 2 列，约12.5%宽度；
+         - 性别选择框（class gender-col）占 2 列，约16.67%宽度；
+         - 身份证号码输入框（class idcard-col）占 2 列，约16.67%宽度；
+         - 按钮组区域（class buttons-col）占 6 列，50%宽度；
+         总和为 2+2+2+6 = 12 列，确保所有元素在同一行排列，不会自动换行。
+    4. 组合查询区域中，卡片的第一行为操作按钮区域，第二行为条件区域，条件区域设置固定高度并启用垂直滚动（超过5行出现滚动条）。
+    5. 表格和分页样式保持原有设置。
+*/
+
+/* 设置查询页面容器的顶部间距 */
+.container.my-4 {
+  margin-top: 20px; /* 页面顶部间距 */
+}
+
+/* 固定查询区域与组合查询区域并排显示 */
+.query-top-row {
+  display: flex;              /* 启用弹性盒子布局 */
+  gap: 20px;                  /* 两个区域之间间隔20px */
+}
+
+/* 固定查询区域和组合查询区域各占父容器的50%宽度 */
+.fixed-query-card,
+.combo-query-card {
+  width: 50%;                 /* 每个区域占父容器宽度的一半 */
+}
+
+/* 固定查询区域第一排：每个 .col-md-2 占20%宽度 */
+.fixed-query-first-row .col-md-2 {
+  flex: 0 0 20%;
+  max-width: 20%;
+}
+
+/* 固定查询区域第二排调整 */
+/* 姓名输入框（class name-col）占 2 列，约12.5%宽度 */
+.fixed-query-second-row .name-col {
+  flex: 0 0 12.5%;
+  max-width: 12.5%;
+}
+
+/* 性别选择框（class gender-col）占 2 列，约16.67%宽度 */
+.fixed-query-second-row .gender-col {
+  flex: 0 0 16.67%;
+  max-width: 16.67%;
+}
+
+/* 身份证号码输入框（class idcard-col）占 2 列，约16.67%宽度 */
+.fixed-query-second-row .idcard-col {
+  flex: 0 0 16.67%;
+  max-width: 16.67%;
+}
+
+/* 按钮组区域（class buttons-col）占 6 列，50%宽度 */
+.fixed-query-second-row .buttons-col {
+  flex: 0 0 50%;
+  max-width: 50%;
+}
+
+/* 组合查询区域条件容器：设置固定高度及垂直滚动 */
+.condition-container {
+  max-height: 300px;   /* 固定高度，约5行 */
+  overflow-y: auto;    /* 超过部分启用垂直滚动 */
+}
+
+/* 表格样式 */
+.table {
+  margin-top: 20px;
+}
+
+/* 分页样式 */
+.pagination {
+  margin-top: 10px;
+}

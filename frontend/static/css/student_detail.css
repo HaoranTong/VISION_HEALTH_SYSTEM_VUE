@@ -1,0 +1,39 @@
+﻿/* 文件名称: student_detail.css
+保存路径: frontend/static/css/student_detail.css
+功能说明:
+    学生详情页专用样式，包含页面布局、卡片式模块、图表容器优化 */
+#student-detail-page {
+    display: block;
+    min-height: 100vh;
+    flex-direction: column;
+}
+
+#student-detail-page .main-content {
+    margin-left: 250px; /* 适应侧边栏宽度 */
+    margin-top: 60px;
+    padding: 2rem;
+    transition: margin-left 0.3s;
+}
+
+#student-detail-page .section-title {
+    font-size: 1.25rem;
+    font-weight: 600;
+    color: #2c3e50;
+}
+
+#student-detail-page .card {
+    border: 1px solid #e9ecef;
+    border-radius: 0.5rem;
+    box-shadow: 0 2px 6px rgba(0, 0, 0, 0.05);
+}
+
+#student-detail-page #effectChart {
+    min-height: 400px;
+    width: 100%!important;
+}
+
+#student-detail-page .button-group {
+    display: flex;
+    gap: 0.75rem;
+    flex-wrap: wrap;
+}

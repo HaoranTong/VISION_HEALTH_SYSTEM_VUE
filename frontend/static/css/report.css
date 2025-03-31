@@ -1,0 +1,61 @@
+﻿/*
+文件名称: report.css
+完整存储路径: frontend/static/css/report.css
+功能说明:
+    定义统计报表页面的局部样式，主要用于调整报表表格、分页、固定查询区域与组合查询区域的布局。
+    新增要求：
+      - 报表标题（表格名称）居中显示；
+      - 附注形式展示的筛选信息（统计时间）字号缩小为0.8em，位置调整为仅贴近表格右侧，与标题在同一行显示。
+使用说明:
+    在 report.html 中通过 <link> 标签引入本文件。
+*/
+body {
+    font-family: "Microsoft YaHei", "微软雅黑", sans-serif;
+}
+
+
+.container.my-4 {
+  margin-top: 20px;
+}
+
+.report-table-row {
+  margin-top: 20px;
+}
+
+.table {
+  width: 100%;
+  margin-top: 10px;
+}
+
+.pagination {
+  margin-top: 10px;
+}
+
+/* 组合查询区域卡片样式微调 */
+.report-combo-query-card {
+  margin-bottom: 15px;
+}
+
+/* 报表标题及附注样式 */
+#reportTitleContainer {
+  position: relative;
+  height: 2.5em; /* 固定高度，确保内部绝对定位生效 */
+}
+
+#reportTitle {
+  position: absolute;
+  left: 50%;
+  transform: translateX(-50%);
+  font-weight: 600;
+  color: #333;
+  margin: 0;
+}
+
+#reportTimeAnnotation {
+  position: absolute;
+  right: 10px;
+  top: 50%;
+  transform: translateY(-50%);
+  font-size: 0.8em; /* 附注字号缩小 */
+  color: #555;
+}

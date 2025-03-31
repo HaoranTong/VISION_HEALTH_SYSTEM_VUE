@@ -1,0 +1,34 @@
+﻿/* 文件路径：frontend/static/css/core.css */
+:root {
+  --topnav-height: 40px;
+  --sidebar-width: 250px;
+  --sidebar-collapsed-width: 60px;
+}
+
+.main-content-container {
+    margin-top: 5px; /* 顶部导航栏高度 */
+    margin-left: var(--current-sidebar-width);
+    width: calc(100% - var(--current-sidebar-width));
+    padding: 20px;
+    min-height: calc(100vh - 40px);
+    transition: margin-left 0.3s, width 0.3s;
+    background: none !important;
+    /* 删除垂直居中属性，如果你希望内容自动填满空间 */
+    display: block;
+}
+
+
+/* 欢迎词容器样式 */
+.welcome-section {
+    max-width: 800px;
+    margin: 0 auto;        /* 移除上下margin */
+    padding: 20px;
+    border-radius: 10px;
+    background: #f8f9fa;      /* 浅灰色背景 */
+    box-shadow: 0 2px 8px rgba(0,0,0,0.1);
+}
+
+/* 侧边栏折叠状态适配 */
+body.sidebar-collapsed .main-content-container {
+  margin-left: 60px;
+}

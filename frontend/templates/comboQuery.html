@@ -1,0 +1,25 @@
+﻿<!--
+文件名称: comboQuery.html
+完整存储路径: frontend/templates/comboQuery.html
+功能说明:
+  组合查询模块的独立 HTML 结构示例。
+  模块包括：
+    - 卡片头部：操作按钮区域（添加条件、清除条件、查询按钮）
+    - 卡片主体：条件区域（用于动态插入条件行）和一个隐藏输入框用于存储组合查询条件的 JSON 字符串
+使用说明:
+  在需要组合查询功能的页面中直接包含此 HTML 片段，同时确保引入 comboQuery.css 和 comboQuery.js。
+-->
+<div class="card query-card">
+  <div class="card-header">
+    <button id="addConditionBtn" class="btn btn-sm btn-primary">添加条件</button>
+    <button id="clearConditionsBtn" class="btn btn-sm btn-warning">清除条件</button>
+    <button id="comboSearchBtn" class="btn btn-sm btn-success">查询</button>
+  </div>
+  <div class="card-body condition-container">
+    <div id="advancedQueryContainer">
+      <!-- 动态生成查询条件行 -->
+    </div>
+    <!-- 隐藏输入框用于存储组合查询条件的 JSON 字符串 -->
+    <input type="hidden" id="comboConditions" value="">
+  </div>
+</div>

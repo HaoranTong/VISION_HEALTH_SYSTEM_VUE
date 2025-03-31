@@ -1,0 +1,36 @@
+﻿<!--
+文件名称: topnav.html
+完整存储路径: frontend/templates/components/topnav/topnav.html
+功能说明:
+    封装顶部导航栏组件，采用独立命名空间 "visionhealth-topnav"。
+    包含侧边栏折叠按钮、全屏按钮、用户头像及下拉菜单。
+使用说明:
+    通过模板包含方式嵌入其他页面中，不作为独立页面调用。
+-->
+<nav class="visionhealth-topnav">
+  <div class="visionhealth-topnav__container">
+    <div class="visionhealth-topnav__left">
+      <button class="visionhealth-topnav__toggle-btn" id="toggleSidebar">
+        <i class="bi bi-list"></i>
+      </button>
+    </div>
+    <div class="visionhealth-topnav__right">
+      <button class="visionhealth-topnav__btn" id="fullscreenBtn">
+        <i class="bi bi-fullscreen"></i>
+      </button>
+      <div class="visionhealth-topnav__user-menu">
+        <img src="{{ url_for('static', filename='images/avatar.png') }}"
+             alt="用户头像" class="visionhealth-topnav__avatar">
+        <div class="visionhealth-topnav__dropdown">
+          <a class="visionhealth-topnav__dropdown-item" href="/personal-center">
+            <i class="bi bi-person"></i> 个人中心
+          </a>
+          <hr class="visionhealth-topnav__divider">
+          <a class="visionhealth-topnav__dropdown-item" href="/logout">
+            <i class="bi bi-box-arrow-right"></i> 退出登录
+          </a>
+        </div>
+      </div>
+    </div>
+  </div>
+</nav>

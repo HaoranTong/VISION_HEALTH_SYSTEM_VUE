@@ -1,0 +1,92 @@
+
+# Python
+__pycache__/
+*.py[cod]
+venv/
+env/
+.virtualenvs/
+site-packages/
+*.egg-info/
+*.egg
+dist/
+build/
+
+# IDE
+.idea/
+*.iml
+.vscode/
+*.swp
+*.swo
+
+# 环境变量和配置
+.env
+.env.local
+.env.development
+.env.production
+config.ini
+secrets.ini
+
+# 日志和缓存
+*.log
+logs/
+.cache/
+
+# 数据库和上传
+*.db
+*.sqlite3
+uploads/
+media/
+
+# 操作系统生成的文件
+.DS_Store
+Thumbs.db
+
+# 测试报告和覆盖率文件
+.coverage
+htmlcov/
+.noseids
+
+# Jupyter Notebook的检查点文件
+.ipynb_checkpoints/
+
+# Python 环境管理工具
+.python-version
+
+# Node.js
+npm-debug.log
+yarn-error.log
+
+# VSCode
+.vscode/
+*.code-workspace
+
+# PowerShell
+*.history/
+*.ps1xml
+*.psm1
+
+# 临时文件
+*.log
+*.stackdump
+*.tmp
+
+# 其他
+/document/
+/failures/
+.chat/
+
+# Cython 编译文件
+*.c
+*.so
+
+# JetBrains IDEs
+*.ipr
+*.iws
+
+# pytest
+.hypothesis/
+
+# Temporary files
+*.swp
+
+node_modules/
